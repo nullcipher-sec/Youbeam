@@ -36,26 +36,6 @@ CREATE TABLE sessions (
 CREATE INDEX idx_sessions_token ON sessions(token_hash);
 CREATE INDEX idx_sessions_user  ON sessions(user_id);
 
--- Roles (Catálogo interno, se mantiene numérico)
-CREATE TABLE roles (
-                       id          SMALLSERIAL PRIMARY KEY,
-                       name        VARCHAR(30) UNIQUE NOT NULL,
-                       description VARCHAR(255)
-);
-
-INSERT INTO roles (name, description) VALUES
-                                          ('user',  'Usuario regular'),
-                                          ('admin', 'Administrador')
-    ON CONFLICT DO NOTHING;
-
--- Roles de Usuario
-CREATE TABLE user_roles (
-                            user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
-                            role_id     SMALLINT REFERENCES roles(id) ON DELETE CASCADE,
-                            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                            PRIMARY KEY (user_id, role_id)
-);
-
 -- Categorías (Taxonomía, se mantiene numérico)
 CREATE TABLE categories (
                             id         BIGSERIAL PRIMARY KEY,
@@ -106,16 +86,6 @@ CREATE TABLE video_assets (
 );
 
 CREATE INDEX idx_assets_video ON video_assets(video_id);
-
--- Acceso Granular a Videos Privados/Ocultos
-CREATE TABLE video_access (
-                              video_id   UUID REFERENCES videos(id) ON DELETE CASCADE,
-                              user_id    UUID REFERENCES users(id)  ON DELETE CASCADE,
-                              granted_by UUID REFERENCES users(id),
-                              granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                              expires_at TIMESTAMP,
-                              PRIMARY KEY (video_id, user_id)
-);
 
 -- Reacciones (Likes y Dislikes)
 CREATE TABLE video_reactions (
