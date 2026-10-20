@@ -108,6 +108,6 @@ Cada integrante trabaja en su propia rama y nadie hace push directo a `main`.
 3. Antes de integrar: `git merge origin/main` en la rama y resolver conflictos
 4. Abrir un **Pull Request hacia `main`**
 
-Las tareas de cada área están en los [issues](https://github.com/arrias24/youbeam/issues).
+Las tareas de cada área están en los [issues](https://github.com/nullcipher-sec/Youbeam/issues).
 
 > Las claves privadas (`deploy/secrets/`) y los archivos `.env` nunca se suben al repositorio.
