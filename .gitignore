@@ -1,4 +1,48 @@
+# ── Secretos y variables de entorno (nunca se versionan) ──
 .env
-**/.env
+.env.*
 !.env.example
-**/!.env.example
+deploy/secrets/
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+hpke_*.json
+
+# ── Sistema operativo ──
+.DS_Store
+Thumbs.db
+
+# ── IDE y editores ──
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# ── Java / Maven (youbeam_core) ──
+target/
+*.log
+
+# ── Node / Vite (youbeam_client) ──
+node_modules/
+dist/
+.vite/
+coverage/
+npm-debug.log*
+# Lockfile vacío generado por error al ejecutar npm en la raíz (el del cliente sí se versiona)
+/package-lock.json
+
+# ── Go (youbeam_stream) ──
+services/youbeam_stream/bin/
+*.exe
+*.test
+*.out
+
+# ── Herramientas locales ──
+# Claude Code (local, por usuario)
+.claude/settings.local.json
+# Grafo de conocimiento generado
+graphify-out/
+# Notas personales de estudio
+notas/
