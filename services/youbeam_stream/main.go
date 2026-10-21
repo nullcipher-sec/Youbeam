@@ -35,6 +35,14 @@ func main() {
 	s := webrtc.SettingEngine{}
 	mux, _ := ice.NewMultiUDPMuxFromPort(8443)
 	s.SetICEUDPMux(mux)
+	// En Docker el contenedor solo conoce su IP interna: PUBLIC_IP es la que debe anunciar en el SDP
+	// para que el navegador pueda llegar al puerto UDP. En local, sin ella, se usan las IPs de la máquina.
+	if publicIP := os.Getenv("PUBLIC_IP"); publicIP != "" {
+		s.SetNAT1To1IPs([]string{publicIP}, webrtc.ICECandidateTypeHost)
+		slog.Info("Anunciando IP pública en los candidatos ICE", "ip", publicIP)
+	} else {
+		slog.Warn("PUBLIC_IP no definida: se anuncian las IPs locales (válido solo fuera de Docker)")
+	}
 	s.SetAnsweringDTLSRole(webrtc.DTLSRoleServer)
 	s.SetSRTPProtectionProfiles(dtls.SRTP_AEAD_AES_128_GCM)
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(s))
@@ -74,11 +82,6 @@ func main() {
 	muxHttp.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
-	})
-
-	// Servir el HTML de prueba local (opcional)
-	muxHttp.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "index.html")
 	})
 
 	// Endpoint de señalización

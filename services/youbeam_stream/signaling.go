@@ -12,6 +12,9 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
+// maxOfferBytes limita el cuerpo de /offer: una oferta SDP real ocupa unos pocos KB.
+const maxOfferBytes = 64 << 10
+
 type OfferRequest struct {
 	SDP    string `json:"sdp"`
 	Ticket string `json:"ticket"`
@@ -19,6 +22,7 @@ type OfferRequest struct {
 
 func HandleOffer(w http.ResponseWriter, r *http.Request, api *webrtc.API, repo VideoRepository, storage StorageService, key *ecdsa.PublicKey) {
 	var req OfferRequest
+	r.Body = http.MaxBytesReader(w, r.Body, maxOfferBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "JSON inválido", http.StatusBadRequest)
 		return

@@ -97,6 +97,19 @@ func TestHandleOfferRejectsTicketForAnotherAudienceOrIssuer(t *testing.T) {
 	}
 }
 
+func TestHandleOfferRejectsOversizedBody(t *testing.T) {
+	privateKey := setupTestKeys(t)
+	body := `{"sdp": "` + strings.Repeat("a", maxOfferBytes+1) + `", "ticket": "x"}`
+	req := httptest.NewRequest(http.MethodPost, "/offer", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	HandleOffer(w, req, webrtc.NewAPI(), &MockDatabase{}, &LocalStorage{}, &privateKey.PublicKey)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Se esperaba 400 para un cuerpo de más de %d bytes, se obtuvo %d", maxOfferBytes, w.Code)
+	}
+}
+
 func TestLoadTicketPublicKey(t *testing.T) {
 	writePublicKey := func(t *testing.T, curve elliptic.Curve) string {
 		privateKey, _ := ecdsa.GenerateKey(curve, rand.Reader)
