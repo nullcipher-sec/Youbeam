@@ -11,7 +11,6 @@ import com.youbeam.core.model.request.RegisterRequest;
 import com.youbeam.core.model.response.LoginResult;
 import com.youbeam.core.model.response.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,7 +58,7 @@ public class AuthController {
 
     @Operation(summary = "Current user", security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> me(@Parameter(hidden = true) AuthenticatedUser user) {
+    public ResponseEntity<UserResponse> me(AuthenticatedUser user) {
         return ResponseEntity.ok(user.toUserResponse());
     }
 

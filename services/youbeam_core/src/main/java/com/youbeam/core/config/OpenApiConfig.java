@@ -1,10 +1,12 @@
 package com.youbeam.core.config;
 
+import com.youbeam.core.commons.AuthenticatedUser;
 import com.youbeam.core.commons.SessionCookies;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -18,6 +20,11 @@ public class OpenApiConfig {
 
     /** Nombre del esquema de seguridad que referencian los endpoints con {@code @SecurityRequirement}. */
     public static final String SESSION_COOKIE_SCHEME = "sessionCookie";
+
+    static {
+        // AuthenticatedUser lo resuelve el servidor a partir de la cookie; no es un parámetro del cliente
+        SpringDocUtils.getConfig().addRequestWrapperToIgnore(AuthenticatedUser.class);
+    }
 
     @Bean
     public OpenAPI youbeamOpenApi() {
