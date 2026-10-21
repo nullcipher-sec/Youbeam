@@ -25,12 +25,28 @@ func HandleOffer(w http.ResponseWriter, r *http.Request, api *webrtc.API, repo V
 	}
 
 	// 1. Validar JWT
-	pubKeyPEM, _ := os.ReadFile("jwt_public.pem")
-	key, _ := jwt.ParseECPublicKeyFromPEM(pubKeyPEM)
+	pubKeyPEM, err := os.ReadFile("/run/secrets/jwt_public.pem")
+	if err != nil {
+		pubKeyPEM, err = os.ReadFile("jwt_public.pem")
+		if err != nil {
+			slog.Error("Error leyendo archivo de llave", "err", err)
+			http.Error(w, "Error interno de llaves", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// [CORRECCIÓN]: Manejo explícito del error de la llave pública
+	key, err := jwt.ParseECPublicKeyFromPEM(pubKeyPEM)
+	if err != nil {
+		slog.Error("Error parseando la llave pública (¿archivo corrupto?)", "err", err)
+		http.Error(w, "Error interno de llaves", http.StatusInternalServerError)
+		return
+	}
+
 	claims := jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(req.Ticket, claims, func(t *jwt.Token) (interface{}, error) {
 		return key, nil
-	})
+	}, jwt.WithValidMethods([]string{"ES256"}), jwt.WithExpirationRequired())
 
 	if err != nil || !token.Valid {
 		slog.Warn("Ticket JWT Inválido", "error", err)
@@ -38,65 +54,75 @@ func HandleOffer(w http.ResponseWriter, r *http.Request, api *webrtc.API, repo V
 		return
 	}
 
-	videoID := claims["vid"].(string)
-	jti := claims["jti"].(string)
-	exp := int64(claims["exp"].(float64))
+	videoID, okVid := claims["vid"].(string)
+	jti, okJti := claims["jti"].(string)
+	exp, okExp := claims["exp"].(float64)
+	if !okVid || !okJti || !okExp {
+		http.Error(w, "Ticket malformado", http.StatusUnauthorized)
+		return
+	}
 
 	// 2. Anti-Replay
-	if err := repo.SaveUsedTicket(jti, time.Unix(exp, 0)); err != nil {
+	if err := repo.SaveUsedTicket(jti, time.Unix(int64(exp), 0)); err != nil {
 		slog.Warn("Intento de Replay detectado", "jti", jti)
 		http.Error(w, "Ticket ya utilizado", http.StatusForbidden)
 		return
 	}
-	slog.Info("Ticket validado", "video_id", videoID, "jti", jti)
 
 	// 3. WebRTC
-	pc, _ := api.NewPeerConnection(webrtc.Configuration{})
+	pc, err := api.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		http.Error(w, "Error creando PeerConnection", http.StatusInternalServerError)
+		return
+	}
+	// NOTA: NO HAY defer pc.Close() AQUÍ. El cierre se maneja abajo.
+
 	videoTrack, _ := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "video", "pion")
 	audioTrack, _ := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "pion")
 	pc.AddTrack(videoTrack)
 	pc.AddTrack(audioTrack)
 
+	if err := pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: req.SDP}); err != nil {
+		slog.Warn("SDP inválido recibido", "err", err)
+		pc.Close() // Cierre inmediato si falla
+		http.Error(w, "SDP inválido", http.StatusBadRequest)
+		return
+	}
+
+	answer, err := pc.CreateAnswer(nil)
+	if err != nil {
+		slog.Error("Error creando answer", "err", err)
+		pc.Close() // Cierre inmediato si falla
+		http.Error(w, "Error interno", http.StatusInternalServerError)
+		return
+	}
+
+	gatherComplete := webrtc.GatheringCompletePromise(pc)
+	if err := pc.SetLocalDescription(answer); err != nil {
+		slog.Error("Error estableciendo local description", "err", err)
+		pc.Close() // Cierre inmediato si falla
+		http.Error(w, "Error interno", http.StatusInternalServerError)
+		return
+	}
+	<-gatherComplete
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if state == webrtc.PeerConnectionStateConnected {
-			slog.Info("Navegador conectado vía WebRTC", "video_id", videoID)
-
-			// [MEJORA] Telemetría WebRTC
-			go func() {
-				ticker := time.NewTicker(5 * time.Second)
-				defer ticker.Stop()
-				for {
-					select {
-					case <-ctx.Done():
-						return
-					case <-ticker.C:
-						stats := pc.GetStats()
-						for _, s := range stats {
-							if outbound, ok := s.(webrtc.OutboundRTPStreamStats); ok {
-								if outbound.Kind == "video" {
-									slog.Info("Telemetría", "paquetes_enviados", outbound.PacketsSent, "bitrate_kbps", outbound.TargetBitrate/1000)
-								}
-							}
-						}
-					}
-				}
-			}()
-
+			slog.Info("Navegador conectado", "video_id", videoID)
 			go StreamMedia(ctx, repo, storage, videoID, videoTrack, audioTrack)
 		}
-		if state == webrtc.PeerConnectionStateDisconnected || state == webrtc.PeerConnectionStateFailed {
-			slog.Info("🔌 Navegador desconectado", "video_id", videoID)
-			cancel()
+
+		// [CORRECCIÓN CRÍTICA]: El cierre depende del ciclo de vida de la conexión, no del handler
+		if state == webrtc.PeerConnectionStateDisconnected ||
+			state == webrtc.PeerConnectionStateFailed ||
+			state == webrtc.PeerConnectionStateClosed {
+			slog.Info("Cliente desconectado o fallo. Cerrando PeerConnection y liberando recursos.", "video_id", videoID)
+			cancel()   // Detiene los hilos de video/audio
+			pc.Close() // Libera memoria
 		}
 	})
-
-	pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: req.SDP})
-	answer, _ := pc.CreateAnswer(nil)
-	gatherComplete := webrtc.GatheringCompletePromise(pc)
-	pc.SetLocalDescription(answer)
-	<-gatherComplete
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(pc.LocalDescription())

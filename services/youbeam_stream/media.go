@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -13,81 +14,100 @@ import (
 
 func StreamMedia(ctx context.Context, repo VideoRepository, storage StorageService, videoID string, videoTrack, audioTrack *webrtc.TrackLocalStaticSample) {
 
-	// [NOTA PARA INTEGRACIÓN CON MARCELO/JHONMAR]
-	// Cuando tengan MinIO y Postgres listos, descomenten este bloque:
-	/*
-		wrappedDEK, err := repo.GetWrappedDEK(videoID)
-		if err != nil { slog.Error("Error obteniendo DEK", "err", err); return }
-		dek, err := UnsealDEK(wrappedDEK, videoID)
-		if err != nil { slog.Error("Error HPKE", "err", err); return }
-	*/
+	wrappedDEK, err := repo.GetWrappedDEK(videoID)
+	if err != nil {
+		slog.Error("Error obteniendo DEK", "err", err)
+		return
+	}
+	dek, err := UnsealDEK(wrappedDEK, videoID)
+	if err != nil {
+		slog.Error("Error descifrando DEK con HPKE", "err", err)
+		return
+	}
 
-	// 1. Preparar Video
 	encVideo, err := storage.GetEncryptedVideo(videoID)
 	if err != nil {
-		slog.Error("No se pudo abrir el video", "err", err)
+		slog.Error("Error abriendo video", "err", err)
 		return
 	}
-	defer encVideo.Close()
+	defer encVideo.Close() // Se cierra pase lo que pase
 
-	// [NOTA] Para producción: ivf, _, err := ivfreader.NewWith(decVideoReader)
-	ivf, _, err := ivfreader.NewWith(encVideo)
+	decVideoReader, err := GetDecryptingReader(encVideo, dek, videoID, true)
 	if err != nil {
-		slog.Error("El archivo IVF no es válido", "err", err)
+		return
+	}
+	ivf, _, err := ivfreader.NewWith(decVideoReader)
+	if err != nil {
 		return
 	}
 
-	// 2. Preparar Audio
-	var ogg *oggreader.OggReader
-	encAudio, errAudio := storage.GetEncryptedAudio(videoID)
-	if errAudio == nil {
-		defer encAudio.Close()
+	encAudio, err := storage.GetEncryptedAudio(videoID)
+	if err != nil {
+		slog.Warn("No hay audio, transmitiendo solo video")
+		return
+	}
+	defer encAudio.Close() // Se cierra pase lo que pase
 
-		// [NOTA] Para producción: ogg, _, errOgg = oggreader.NewWith(decAudioReader)
-		var errOgg error
-		ogg, _, errOgg = oggreader.NewWith(encAudio)
-		if errOgg != nil {
-			slog.Warn("El archivo OGG no es Opus válido. Se transmitirá solo video", "err", errOgg)
-			ogg = nil
-		} else {
-			slog.Info("Audio Opus cargado correctamente")
-		}
+	decAudioReader, err := GetDecryptingReader(encAudio, dek, videoID, false)
+	if err != nil {
+		return
+	}
+	ogg, _, err := oggreader.NewWith(decAudioReader)
+	if err != nil {
+		slog.Warn("El audio no es Opus válido, transmitiendo solo video")
 	}
 
-	slog.Info("Iniciando envío de muestras VP8 + Opus")
+	slog.Info("Iniciando transmisión...")
+
+	var wg sync.WaitGroup
+	videoFinished := make(chan struct{})
 
 	// Goroutine Video
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+		defer close(videoFinished)
 		for {
-			frame, _, err := ivf.ParseNextFrame()
-			if err != nil {
-				slog.Info("Fin del video")
+			select {
+			case <-ctx.Done():
 				return
+			default:
+				frame, _, err := ivf.ParseNextFrame()
+				if err != nil {
+					slog.Info("Fin del video o error GCM")
+					return
+				}
+				videoTrack.WriteSample(media.Sample{Data: frame, Duration: 33 * time.Millisecond})
+				time.Sleep(33 * time.Millisecond)
 			}
-			videoTrack.WriteSample(media.Sample{Data: frame, Duration: 33 * time.Millisecond})
-			time.Sleep(33 * time.Millisecond)
 		}
 	}()
 
-	// Goroutine Audio (en bucle)
+	// Goroutine Audio
 	if ogg != nil {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			for {
-				page, _, err := ogg.ParseNextPage()
-				if err != nil {
-					if err.Error() == "EOF" {
-						encAudio.Close()
-						newAudio, _ := storage.GetEncryptedAudio(videoID)
-						ogg, _, _ = oggreader.NewWith(newAudio)
-						continue
-					}
+				select {
+				case <-ctx.Done():
 					return
+				case <-videoFinished:
+					slog.Info("Audio detenido porque el video terminó")
+					return
+				default:
+					page, _, err := ogg.ParseNextPage()
+					if err != nil {
+						slog.Info("Fin del audio o error GCM")
+						return
+					}
+					audioTrack.WriteSample(media.Sample{Data: page, Duration: 20 * time.Millisecond})
+					time.Sleep(20 * time.Millisecond)
 				}
-				audioTrack.WriteSample(media.Sample{Data: page, Duration: 20 * time.Millisecond})
-				time.Sleep(20 * time.Millisecond)
 			}
 		}()
 	}
 
-	<-ctx.Done()
+	wg.Wait()
+	slog.Info("Transmisión terminada de forma natural. Recursos liberados.")
 }

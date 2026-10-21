@@ -12,9 +12,15 @@ import (
 	"github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
 )
 
-// UnsealDEK descifra la llave (DEK) usando HPKE y la llave privada de Docker Secrets.
+// UnsealDEK descifra la llave (DEK) usando HPKE.
 func UnsealDEK(wrappedDEK []byte, videoID string) ([]byte, error) {
-	privKeyJSON, err := os.ReadFile("hpke_private.json")
+	// Busca en /run/secrets (Docker) o en local (Pruebas)
+	path := "/run/secrets/hpke_private.json"
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		path = "hpke_private.json"
+	}
+
+	privKeyJSON, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("no se encontró hpke_private.json: %w", err)
 	}
@@ -33,7 +39,7 @@ func UnsealDEK(wrappedDEK []byte, videoID string) ([]byte, error) {
 	// El AAD debe ser exactamente el videoID
 	dek, err := hybridDecrypt.Decrypt(wrappedDEK, []byte(videoID))
 	if err != nil {
-		return nil, fmt.Errorf("fallo al descifrar la DEK: %w", err)
+		return nil, fmt.Errorf("fallo al descifrar la DEK (posible manipulación): %w", err)
 	}
 
 	return dek, nil
@@ -41,14 +47,12 @@ func UnsealDEK(wrappedDEK []byte, videoID string) ([]byte, error) {
 
 // GetDecryptingReader envuelve un lector cifrado y lo convierte en uno descifrado al vuelo.
 func GetDecryptingReader(encryptedReader io.Reader, dek []byte, videoID string, isVideo bool) (io.Reader, error) {
-	// Usamos NewAESGCMHKDF del paquete subtle.
-	// Parámetros: mainKey, hkdfAlg, keySizeInBytes, segmentSize, firstSegmentOffset
 	aead, err := subtle.NewAESGCMHKDF(
-		dek,      // DEK de 32 bytes para AES-256
-		"SHA256", // Algoritmo HKDF
-		32,       // Tamaño de la clave en bytes (32 = AES-256)
-		1<<20,    // Tamaño del segmento: 1 MiB
-		0,        // Offset del primer segmento
+		dek,
+		"SHA256",
+		32,
+		1<<20, // 1 MiB segment size
+		0,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error inicializando Streaming AEAD: %w", err)

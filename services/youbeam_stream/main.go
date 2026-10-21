@@ -6,9 +6,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/json"
+	"database/sql"
 	"encoding/pem"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,25 +15,29 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pion/dtls/v3"
 	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
+	_ "github.com/lib/pq"
 )
 
 func main() {
-	// 0. Inicializar Logging Estructurado (JSON o Texto)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 	slog.Info("Iniciando YouBeam Streaming Server...")
 
-	// 1. Generar llaves locales para pruebas (En producción se leen de /run/secrets)
-	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	pubBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
-	pubPem := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
-	os.WriteFile("jwt_public.pem", pubPem, 0644)
+	// Si no estamos en Docker, generamos la llave local para pruebas
+	if _, err := os.Stat("/run/secrets/jwt_public.pem"); os.IsNotExist(err) {
+		slog.Warn("No se encontró llave en secrets, generando una local para pruebas...")
+		privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		pubBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+		pubPem := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
+		os.WriteFile("jwt_public.pem", pubPem, 0644)
+	}
 
-	// 2. Configurar Pion (DTLS-SRTP)
+	// Configurar Pion (DTLS-SRTP)
 	s := webrtc.SettingEngine{}
 	mux, _ := ice.NewMultiUDPMuxFromPort(8443)
 	s.SetICEUDPMux(mux)
@@ -42,56 +45,71 @@ func main() {
 	s.SetSRTPProtectionProfiles(dtls.SRTP_AEAD_AES_128_GCM)
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(s))
 
-	// 3. Inyectar Dependencias (Usamos Mocks por ahora)
-	var repo VideoRepository = &MockDatabase{}
-	var storage StorageService = &LocalStorage{}
+	// =========================================================================
+	// INTEGRACIÓN INTELIGENTE (Mocks o Reales dependiendo del entorno)
+	// =========================================================================
+	var repo VideoRepository
+	var storage StorageService
 
-	// 4. Configurar Rutas HTTP
+	dbURL := os.Getenv("DATABASE_URL")
+	minioURL := os.Getenv("MINIO_ENDPOINT")
+
+	if dbURL != "" && minioURL != "" {
+		slog.Info("Conectando a Infraestructura Real (Postgres + MinIO)...")
+		
+		db, err := sql.Open("postgres", dbURL)
+		if err != nil { slog.Error("Error DB", "err", err); os.Exit(1) }
+		repo = &PostgresRepository{DB: db}
+
+		minioClient, err := minio.New(minioURL, &minio.Options{
+			Creds:  credentials.NewStaticV4(os.Getenv("MINIO_USER"), os.Getenv("MINIO_PASSWORD"), ""),
+			Secure: false,
+		})
+		if err != nil { slog.Error("Error MinIO", "err", err); os.Exit(1) }
+		storage = &MinioStorage{Client: minioClient}
+	} else {
+		slog.Warn("Variables de entorno no encontradas. Usando MOCKS para pruebas locales.")
+		repo = &MockDatabase{}
+		storage = &LocalStorage{}
+	}
+	// =========================================================================
+
 	muxHttp := http.NewServeMux()
 
-	// 4.1. Healthcheck (Para Docker/Jhonmar)
+	// Healthcheck para Docker
 	muxHttp.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
+	// Servir el HTML de prueba local (opcional)
 	muxHttp.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
 	})
 
-	muxHttp.HandleFunc("/get-test-ticket", func(w http.ResponseWriter, r *http.Request) {
-		claims := jwt.MapClaims{
-			"vid": "video-123",
-			"jti": fmt.Sprintf("%d", time.Now().UnixNano()),
-			"exp": time.Now().Add(60 * time.Second).Unix(),
-		}
-		token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
-		tokenString, _ := token.SignedString(privateKey)
-		json.NewEncoder(w).Encode(map[string]string{"ticket": tokenString})
-	})
-
+	// Endpoint de señalización
 	muxHttp.HandleFunc("/offer", func(w http.ResponseWriter, r *http.Request) {
 		HandleOffer(w, r, api, repo, storage)
 	})
 
-	// 5. Configurar Servidor con Graceful Shutdown
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: muxHttp,
 	}
 
 	go func() {
-		slog.Info("Servidor escuchando en http://127.0.0.1:8080")
+		slog.Info("Servidor escuchando en http://0.0.0.0:8080")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Error en el servidor HTTP", "err", err)
+			slog.Error("Fallo crítico en el servidor HTTP (¿Puerto ocupado?)", "err", err)
+			os.Exit(1) 
 		}
 	}()
 
-	// Esperar señal de apagado
+	// Esperar señal de apagado (Graceful Shutdown)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
-	slog.Info("pagando servidor ordenadamente (Graceful Shutdown)...")
+	slog.Info("Apagando servidor ordenadamente (Graceful Shutdown)...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
