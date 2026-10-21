@@ -27,6 +27,7 @@ class YoubeamCoreApplicationTests {
         List<String> tables = jdbcTemplate.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'", String.class);
 
-        assertThat(tables).contains("users", "sessions", "videos", "video_assets", "categories");
+        assertThat(tables).contains("users", "sessions", "videos", "video_assets", "categories",
+                "video_keys", "used_play_tickets");
     }
 }
