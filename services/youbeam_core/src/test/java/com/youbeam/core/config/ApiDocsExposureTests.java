@@ -40,7 +40,9 @@ class ApiDocsExposureTests {
             mockMvc.perform(get("/v3/api-docs"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.info.title").value("YouBeam Core API"))
-                    .andExpect(jsonPath("$.components.securitySchemes.sessionCookie.in").value("cookie"));
+                    .andExpect(jsonPath("$.components.securitySchemes.sessionCookie.in").value("cookie"))
+                    // El usuario autenticado lo resuelve el servidor; nunca debe aparecer como parámetro
+                    .andExpect(jsonPath("$..parameters[?(@.name == 'user')]").isEmpty());
         }
     }
 

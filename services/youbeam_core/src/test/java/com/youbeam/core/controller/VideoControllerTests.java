@@ -112,14 +112,14 @@ class VideoControllerTests {
         assertThat(softDeleted).isTrue();
     }
 
+    // GET /api/videos/{id} y el catálogo son públicos: se prueban en VideoVisibilityTests
     @Test
-    void everyEndpointRequiresSession() throws Exception {
+    void writeAndOwnListEndpointsRequireSession() throws Exception {
         String id = UUID.randomUUID().toString();
 
         mockMvc.perform(post("/api/videos").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"x\"}"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/videos")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/videos/{id}", id)).andExpect(status().isUnauthorized());
         mockMvc.perform(patch("/api/videos/{id}", id).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(delete("/api/videos/{id}", id)).andExpect(status().isUnauthorized());

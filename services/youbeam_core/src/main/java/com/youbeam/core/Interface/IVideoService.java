@@ -18,6 +18,14 @@ public interface IVideoService {
 
     List<VideoResponse> listOwn(AuthenticatedUser user);
 
+    /**
+     * Catálogo público: solo videos {@code public} y listos, del más reciente al más antiguo.
+     */
+    List<VideoResponse> catalog(int page, int size);
+
+    /**
+     * @param user usuario de la petición, o {@code null} si no hay sesión
+     */
     VideoResponse get(UUID id, AuthenticatedUser user) throws ControllerException;
 
     VideoResponse update(UUID id, UpdateVideoRequest request, AuthenticatedUser user) throws ControllerException;

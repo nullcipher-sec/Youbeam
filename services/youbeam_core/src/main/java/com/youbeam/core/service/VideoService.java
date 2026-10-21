@@ -11,6 +11,7 @@ import com.youbeam.core.model.request.UpdateVideoRequest;
 import com.youbeam.core.model.response.VideoResponse;
 import com.youbeam.core.repository.VideoRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +36,7 @@ public class VideoService implements IVideoService {
         video.setOwnerId(user.id());
         video.setTitle(request.getTitle().trim());
         video.setDescription(request.getDescription());
-        video.setVisibility(request.getVisibility() != null ? request.getVisibility() : VideoVisibility.PRIVATE);
+        changeVisibility(video, request.getVisibility() != null ? request.getVisibility() : VideoVisibility.PRIVATE);
         return VideoResponse.from(videoRepository.saveAndFlush(video));
     }
 
@@ -43,6 +44,14 @@ public class VideoService implements IVideoService {
     @Transactional(readOnly = true)
     public List<VideoResponse> listOwn(AuthenticatedUser user) {
         return videoRepository.findByOwnerIdOrderByCreatedAtDesc(user.id()).stream()
+                .map(VideoResponse::from)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VideoResponse> catalog(int page, int size) {
+        return videoRepository.findPublicCatalog(PageRequest.of(page, size)).stream()
                 .map(VideoResponse::from)
                 .toList();
     }
@@ -65,7 +74,7 @@ public class VideoService implements IVideoService {
             video.setDescription(request.getDescription());
         }
         if (request.getVisibility() != null) {
-            video.setVisibility(request.getVisibility());
+            changeVisibility(video, request.getVisibility());
         }
         return VideoResponse.from(videoRepository.saveAndFlush(video));
     }
@@ -75,6 +84,16 @@ public class VideoService implements IVideoService {
     public void delete(UUID id, AuthenticatedUser user) throws ControllerException {
         Video video = findModifiable(id, user);
         video.setDeletedAt(LocalDateTime.now());
+    }
+
+    /**
+     * La primera vez que un video se hace público se guarda la fecha, que ordena el catálogo.
+     */
+    private static void changeVisibility(Video video, VideoVisibility visibility) {
+        video.setVisibility(visibility);
+        if (visibility == VideoVisibility.PUBLIC && video.getPublishedAt() == null) {
+            video.setPublishedAt(LocalDateTime.now());
+        }
     }
 
     /**
