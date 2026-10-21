@@ -1,0 +1,14 @@
+# Archivos de prueba locales
+mi_video.mp4
+output.ivf
+output.ogg
+index.html
+
+# Secretos y llaves
+jwt_public.pem
+hpke_private.json
+*.pem
+
+# Binarios compilados
+youbeam_stream
+*.exe
