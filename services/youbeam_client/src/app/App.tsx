@@ -1,8 +1,8 @@
-import Authentication from '../pages/Authentication'
+import Home from '../pages/Home'
 import './App.css'
 
 function App() {
-  return <Authentication />
+  return <Home />
 }
 
 export default App
