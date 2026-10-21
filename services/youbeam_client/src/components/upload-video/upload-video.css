@@ -1,0 +1,119 @@
+.upload-form {
+  display: grid;
+  gap: 18px;
+  max-width: 720px;
+  padding: 24px;
+  border: 1px solid #edf0f6;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.upload-form label:not(.upload-dropzone) {
+  display: grid;
+  gap: 7px;
+  color: #5b6880;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.upload-form input:not([type='file']),
+.upload-form textarea,
+.upload-form select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #dfe6f0;
+  border-radius: 9px;
+  color: #34435e;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+
+.upload-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.upload-dropzone {
+  display: grid;
+  gap: 6px;
+  padding: 30px 20px;
+  border: 1px dashed #bfcbdc;
+  border-radius: 12px;
+  color: #5275b5;
+  background: #f8faff;
+  cursor: pointer;
+  text-align: center;
+}
+
+.upload-dropzone span {
+  color: #7888a2;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.upload-dropzone input {
+  display: none;
+}
+
+.upload-progress {
+  display: grid;
+  gap: 7px;
+  color: #5b6880;
+  font-size: 12px;
+}
+
+.upload-progress > div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.upload-progress progress {
+  width: 100%;
+  accent-color: #c51627;
+}
+
+.upload-progress small {
+  color: #7888a2;
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.secondary-action {
+  padding: 10px 15px;
+  border: 1px solid #dfe6f0;
+  border-radius: 9px;
+  color: #5b6880;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.is-dark .upload-form {
+  border-color: #252e43;
+  background: #171d2d;
+}
+
+.is-dark .upload-form label:not(.upload-dropzone) {
+  color: #aebbd1;
+}
+
+.is-dark .upload-form input:not([type='file']),
+.is-dark .upload-form textarea,
+.is-dark .upload-form select {
+  border-color: #34415a;
+  color: #edf2ff;
+  background: #101522;
+}
+
+.is-dark .upload-dropzone {
+  border-color: #536581;
+  background: #20283b;
+}
