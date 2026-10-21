@@ -18,4 +18,9 @@ public interface ISessionService {
      * Devuelve el usuario dueño del token si la sesión está activa, no ha expirado y la cuenta está activa.
      */
     Optional<User> findActiveUser(String token);
+
+    /**
+     * Revoca la sesión del token (logout). No hace nada si el token no existe o ya no está activo.
+     */
+    void revoke(String token);
 }

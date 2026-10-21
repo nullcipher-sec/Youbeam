@@ -1,11 +1,14 @@
 package com.youbeam.core.controller;
 
 import com.youbeam.core.TestcontainersConfiguration;
+import com.youbeam.core.commons.SessionCookies;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,8 +19,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -131,6 +136,70 @@ class AuthControllerTests {
         jdbcTemplate.update("UPDATE users SET status = 'suspended' WHERE username = ?", username);
 
         login(username, PASSWORD).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void loginSetsHardenedSessionCookie() throws Exception {
+        String username = uniqueUsername();
+        register(username, PASSWORD).andExpect(status().isCreated());
+
+        String setCookie = login(username, PASSWORD)
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getHeader(HttpHeaders.SET_COOKIE);
+
+        assertThat(setCookie).startsWith(SessionCookies.NAME + "=")
+                .contains("HttpOnly", "Secure", "SameSite=Strict", "Path=/", "Max-Age=28800")
+                .doesNotContain("Domain");
+    }
+
+    @Test
+    void meReturnsUserWithValidSessionCookie() throws Exception {
+        String username = uniqueUsername();
+        Cookie session = registerAndLogin(username);
+
+        mockMvc.perform(get("/api/auth/me").cookie(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(username));
+    }
+
+    @Test
+    void meWithoutOrWithForgedCookieReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Authentication required"));
+
+        mockMvc.perform(get("/api/auth/me").cookie(new Cookie(SessionCookies.NAME, "forged-token")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutRevokesSessionAndClearsCookie() throws Exception {
+        String username = uniqueUsername();
+        Cookie session = registerAndLogin(username);
+
+        mockMvc.perform(post("/api/auth/logout").cookie(session))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=0")));
+
+        // El token sigue en manos del cliente, pero ya no sirve
+        mockMvc.perform(get("/api/auth/me").cookie(session)).andExpect(status().isUnauthorized());
+
+        String status = jdbcTemplate.queryForObject(
+                "SELECT s.status::text FROM sessions s JOIN users u ON u.id = s.user_id "
+                        + "WHERE u.username = ? AND s.revoked_at IS NOT NULL", String.class, username);
+        assertThat(status).isEqualTo("revoked");
+    }
+
+    @Test
+    void logoutWithoutSessionStillSucceeds() throws Exception {
+        mockMvc.perform(post("/api/auth/logout")).andExpect(status().isNoContent());
+    }
+
+    private Cookie registerAndLogin(String username) throws Exception {
+        register(username, PASSWORD).andExpect(status().isCreated());
+        Cookie cookie = login(username, PASSWORD).andReturn().getResponse().getCookie(SessionCookies.NAME);
+        assertThat(cookie).isNotNull();
+        return cookie;
     }
 
     private ResultActions register(String username, String password) throws Exception {

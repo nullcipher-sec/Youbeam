@@ -1,8 +1,11 @@
 package com.youbeam.core.exception;
 
+import com.youbeam.core.commons.SessionAuthenticationFilter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,7 +18,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = ExceptionControllerAdviceTests.FailingController.class)
+// El filtro de sesión necesita la base de datos; este test solo prueba el manejo de errores
+@WebMvcTest(controllers = ExceptionControllerAdviceTests.FailingController.class,
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
+                classes = SessionAuthenticationFilter.class))
 @Import({ExceptionControllerAdvice.class, ExceptionControllerAdviceTests.FailingController.class})
 class ExceptionControllerAdviceTests {
 

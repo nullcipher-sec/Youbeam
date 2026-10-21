@@ -71,6 +71,20 @@ public class SessionService implements ISessionService {
         return user.getStatus() == UserStatus.ACTIVE ? Optional.of(user) : Optional.empty();
     }
 
+    @Override
+    @Transactional
+    public void revoke(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        sessionRepository.findByTokenHash(SessionTokens.hash(token))
+                .filter(session -> session.getStatus() == SessionStatus.ACTIVE)
+                .ifPresent(session -> {
+                    session.setStatus(SessionStatus.REVOKED);
+                    session.setRevokedAt(LocalDateTime.now());
+                });
+    }
+
     private static String truncate(String value, int maxLength) {
         if (value == null) {
             return null;
