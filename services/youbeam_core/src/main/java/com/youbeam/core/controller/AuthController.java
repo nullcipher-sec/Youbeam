@@ -4,9 +4,12 @@ import com.youbeam.core.Interface.IAuthService;
 import com.youbeam.core.exception.ControllerException;
 import com.youbeam.core.model.request.LoginRequest;
 import com.youbeam.core.model.request.RegisterRequest;
+import com.youbeam.core.model.response.LoginResult;
 import com.youbeam.core.model.response.UserResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,8 +34,11 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request)
-            throws ControllerException {
-        return ResponseEntity.ok(authService.login(request));
+    public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request,
+                                              HttpServletRequest httpRequest) throws ControllerException {
+        LoginResult result = authService.login(request, httpRequest.getRemoteAddr(),
+                httpRequest.getHeader(HttpHeaders.USER_AGENT));
+        // El token de sesión se entregará en una cookie HttpOnly (siguiente tarea), nunca en el cuerpo
+        return ResponseEntity.ok(result.user());
     }
 }

@@ -82,6 +82,34 @@ class AuthControllerTests {
     }
 
     @Test
+    void loginOpensSessionWithoutExposingTheToken() throws Exception {
+        String username = uniqueUsername();
+        register(username, PASSWORD).andExpect(status().isCreated());
+
+        login(username, PASSWORD)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessionToken").doesNotExist());
+
+        Integer sessions = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM sessions s JOIN users u ON u.id = s.user_id "
+                        + "WHERE u.username = ? AND s.status = 'active'", Integer.class, username);
+        assertThat(sessions).isOne();
+    }
+
+    @Test
+    void failedLoginDoesNotOpenSession() throws Exception {
+        String username = uniqueUsername();
+        register(username, PASSWORD).andExpect(status().isCreated());
+
+        login(username, "wrong-password-123").andExpect(status().isUnauthorized());
+
+        Integer sessions = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.username = ?",
+                Integer.class, username);
+        assertThat(sessions).isZero();
+    }
+
+    @Test
     void wrongPasswordAndUnknownUserReturnTheSameError() throws Exception {
         String username = uniqueUsername();
         register(username, PASSWORD).andExpect(status().isCreated());

@@ -1,12 +1,14 @@
 package com.youbeam.core.service;
 
 import com.youbeam.core.Interface.IAuthService;
+import com.youbeam.core.Interface.ISessionService;
 import com.youbeam.core.entity.User;
 import com.youbeam.core.enums.UserStatus;
 import com.youbeam.core.exception.ControllerException;
 import com.youbeam.core.exception.ErrorResponses;
 import com.youbeam.core.model.request.LoginRequest;
 import com.youbeam.core.model.request.RegisterRequest;
+import com.youbeam.core.model.response.LoginResult;
 import com.youbeam.core.model.response.UserResponse;
 import com.youbeam.core.repository.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,13 +21,14 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Registro e inicio de sesión con contraseñas hasheadas en Argon2id.
+ * Registro e inicio de sesión con contraseñas hasheadas en Argon2id; cada login abre una sesión.
  */
 @Service
 public class AuthService implements IAuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ISessionService sessionService;
 
     /**
      * Hash de una contraseña aleatoria: se compara contra él cuando el usuario no existe
@@ -33,9 +36,11 @@ public class AuthService implements IAuthService {
      */
     private final String dummyHash;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       ISessionService sessionService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.sessionService = sessionService;
         this.dummyHash = passwordEncoder.encode("dummy-password-for-timing");
     }
 
@@ -65,7 +70,8 @@ public class AuthService implements IAuthService {
 
     @Override
     @Transactional
-    public UserResponse login(LoginRequest request) throws ControllerException {
+    public LoginResult login(LoginRequest request, String ipAddress, String userAgent)
+            throws ControllerException {
         String login = normalize(request.getLogin());
         Optional<User> found = userRepository.findByUsernameOrEmail(login, login);
 
@@ -87,7 +93,8 @@ public class AuthService implements IAuthService {
         }
         user.setLastLoginAt(LocalDateTime.now());
 
-        return UserResponse.from(user);
+        String token = sessionService.create(user, ipAddress, userAgent);
+        return new LoginResult(UserResponse.from(user), token);
     }
 
     private static String normalize(String value) {
