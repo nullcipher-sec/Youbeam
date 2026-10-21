@@ -1,11 +1,13 @@
 package com.youbeam.core.controller;
 
+import com.youbeam.core.Interface.IPlaybackTicketService;
 import com.youbeam.core.Interface.IVideoService;
 import com.youbeam.core.commons.AuthenticatedUser;
 import com.youbeam.core.config.OpenApiConfig;
 import com.youbeam.core.exception.ControllerException;
 import com.youbeam.core.model.request.CreateVideoRequest;
 import com.youbeam.core.model.request.UpdateVideoRequest;
+import com.youbeam.core.model.response.PlaybackTicketResponse;
 import com.youbeam.core.model.response.VideoResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +17,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -42,6 +45,7 @@ import java.util.UUID;
 public class VideoController {
 
     private final IVideoService videoService;
+    private final IPlaybackTicketService playbackTicketService;
 
     @Operation(summary = "Create a video", description = "New videos are private and pending upload.",
             security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
@@ -72,6 +76,18 @@ public class VideoController {
                                              @Parameter(hidden = true) Optional<AuthenticatedUser> user)
             throws ControllerException {
         return ResponseEntity.ok(videoService.get(id, user.orElse(null)));
+    }
+
+    // no-store: el ticket es una credencial y no debe quedar en cachés del navegador ni de proxies
+    @Operation(summary = "Get a playback ticket",
+            description = "Short-lived ES256 JWT for the Streaming Server. 403 if the caller cannot view the video.")
+    @GetMapping("/{id}/play")
+    public ResponseEntity<PlaybackTicketResponse> play(@PathVariable UUID id,
+                                                       @Parameter(hidden = true) Optional<AuthenticatedUser> user)
+            throws ControllerException {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(playbackTicketService.issue(id, user.orElse(null)));
     }
 
     @Operation(summary = "Update a video", description = "Only the owner can update. Absent fields are kept.",

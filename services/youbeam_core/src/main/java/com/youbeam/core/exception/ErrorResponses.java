@@ -29,6 +29,9 @@ public final class ErrorResponses {
     public static final ErrorResponse USER_ALREADY_EXISTS = new ErrorResponse(HttpStatus.CONFLICT,
             "Username or email already registered");
 
+    public static final ErrorResponse VIDEO_NOT_READY = new ErrorResponse(HttpStatus.CONFLICT,
+            "Video is not ready for playback");
+
     private ErrorResponses() {
     }
 }
