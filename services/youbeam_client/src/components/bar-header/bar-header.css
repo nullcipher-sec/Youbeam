@@ -1,0 +1,213 @@
+.bar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    width: 100%;
+    min-height: 58px;
+    box-sizing: border-box;
+}
+
+.bar-header-search {
+    display: flex;
+    align-items: center;
+    flex: 1 1 520px;
+    max-width: 575px;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    color: #65748d;
+    background: #fff;
+    box-shadow: 0 5px 18px rgba(36, 59, 99, 0.035);
+}
+
+.bar-header-search svg {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+.bar-header-search input {
+    width: 100%;
+    min-width: 0;
+    margin-left: 9px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    color: #34435e;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+}
+
+.bar-header-search input::placeholder {
+    color: #77859b;
+    opacity: 1;
+}
+
+.bar-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.bar-header-upload {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    color: #fff;
+    background: #c51627;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 5px 13px rgba(197, 22, 39, 0.16);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.bar-header-upload:hover {
+    background: #ad1222;
+    transform: translateY(-1px);
+}
+
+.bar-header-upload:focus-visible {
+    outline: 3px solid rgba(197, 22, 39, 0.25);
+    outline-offset: 3px;
+}
+
+.bar-header-upload svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+/* Nuevos estilos para el menú del usuario */
+.user-menu-container {
+    position: relative;
+}
+
+.avatar-button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.avatar-button:hover {
+    transform: scale(1.08);
+}
+
+.avatar-button:focus-visible {
+    outline: 3px solid rgba(82, 120, 189, 0.25);
+    outline-offset: 2px;
+}
+
+.bar-header-avatar {
+    width: 34px;
+    height: 34px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(23, 35, 63, 0.18);
+}
+
+/* Dropdown */
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 160px;
+    background: #ffffff;
+    border: 1px solid #e5ebf4;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(36, 59, 99, 0.08);
+    padding: 6px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: slideDown 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.user-dropdown-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #34435e;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.user-dropdown-item:hover {
+    background: #f7faff;
+    color: #17233f;
+}
+
+.user-dropdown-item.is-danger {
+    color: #c51627;
+}
+
+.user-dropdown-item.is-danger:hover {
+    background: #fff0f1;
+    color: #ad1222;
+}
+
+.user-dropdown-divider {
+    height: 1px;
+    background: #e5ebf4;
+    margin: 4px 6px;
+}
+
+@media (max-width: 620px) {
+    .bar-header {
+        gap: 12px;
+    }
+
+    .bar-header-actions {
+        gap: 10px;
+    }
+
+    .bar-header-upload {
+        width: 40px;
+        padding: 0;
+    }
+
+    .bar-header-upload span {
+        display: none;
+    }
+}
