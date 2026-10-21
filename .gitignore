@@ -9,3 +9,6 @@
 # IDE y grafo de conocimiento generado (local)
 .idea/
 graphify-out/
+
+# Notas personales de estudio (no se versionan)
+notas/
