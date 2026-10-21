@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.util.stream.Collectors;
+
 /**
  * Manejador global de excepciones. Todo error sale de la API como un {@link ErrorResponse};
  * las excepciones inesperadas se registran en el servidor y se responden con un 500 genérico.
@@ -31,9 +33,22 @@ public class ExceptionControllerAdvice {
         return toResponse(error);
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
-    public ResponseEntity<ErrorResponse> handleInvalidRequest(Exception ex) {
-        logger.debug("Invalid request: {}", ex.getMessage());
+    // Solo se registran el campo y la regla que fallaron: el valor rechazado puede ser una contraseña
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidArgument(MethodArgumentNotValidException ex) {
+        if (logger.isDebugEnabled()) {
+            String fields = ex.getBindingResult().getFieldErrors().stream()
+                    .map(error -> error.getField() + ":" + error.getCode())
+                    .collect(Collectors.joining(", "));
+            logger.debug("Invalid request fields: {}", fields);
+        }
+        return toResponse(ErrorResponses.BAD_REQUEST);
+    }
+
+    // El mensaje de Jackson puede incluir fragmentos del cuerpo, así que solo se registra el tipo
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        logger.debug("Unreadable request body: {}", ex.getClass().getSimpleName());
         return toResponse(ErrorResponses.BAD_REQUEST);
     }
 
