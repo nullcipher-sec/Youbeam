@@ -23,7 +23,7 @@ func main() {
 	slog.SetDefault(logger)
 	slog.Info("Iniciando YouBeam Streaming Server...")
 
-	// Clave pública de tickets: obligatoria, sin ella no se puede verificar ningún ticket
+	// Clave pública de tickets: la misma que firma el Core (deploy/secrets o Docker secret)
 	ticketKey, keyPath, err := LoadTicketPublicKey()
 	if err != nil {
 		slog.Error("No se pudo cargar la clave pública de tickets", "err", err)
@@ -48,16 +48,9 @@ func main() {
 	dbURL := os.Getenv("DATABASE_URL")
 	minioURL := os.Getenv("MINIO_ENDPOINT")
 
-	// Los mocks se activan solo de forma explícita: un despliegue con variables olvidadas debe
-	// fallar, no funcionar con el anti-replay en memoria y videos leídos del disco local
-	switch {
-	case os.Getenv("STREAM_USE_MOCKS") == "true":
-		slog.Warn("STREAM_USE_MOCKS=true: usando MOCKS (solo para pruebas locales)")
-		repo = &MockDatabase{}
-		storage = &LocalStorage{}
-	case dbURL != "" && minioURL != "":
+	if dbURL != "" && minioURL != "" {
 		slog.Info("Conectando a Infraestructura Real (Postgres + MinIO)...")
-
+		
 		db, err := sql.Open("postgres", dbURL)
 		if err != nil { slog.Error("Error DB", "err", err); os.Exit(1) }
 		repo = &PostgresRepository{DB: db}
@@ -68,9 +61,10 @@ func main() {
 		})
 		if err != nil { slog.Error("Error MinIO", "err", err); os.Exit(1) }
 		storage = &MinioStorage{Client: minioClient}
-	default:
-		slog.Error("Faltan DATABASE_URL y MINIO_ENDPOINT (o STREAM_USE_MOCKS=true para pruebas locales)")
-		os.Exit(1)
+	} else {
+		slog.Warn("Variables de entorno no encontradas. Usando MOCKS para pruebas locales.")
+		repo = &MockDatabase{}
+		storage = &LocalStorage{}
 	}
 	// =========================================================================
 
@@ -80,6 +74,11 @@ func main() {
 	muxHttp.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
+	})
+
+	// Servir el HTML de prueba local (opcional)
+	muxHttp.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
 	})
 
 	// Endpoint de señalización
@@ -93,9 +92,8 @@ func main() {
 		addr = ":8080"
 	}
 	srv := &http.Server{
-		Addr:              addr,
-		Handler:           muxHttp,
-		ReadHeaderTimeout: 5 * time.Second,
+		Addr:    addr,
+		Handler: muxHttp,
 	}
 
 	go func() {

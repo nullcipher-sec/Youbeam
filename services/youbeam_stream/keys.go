@@ -8,12 +8,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Emisor y audiencia que pone el Core en cada ticket (youbeam.jwt.issuer / youbeam.jwt.audience).
-const (
-	TicketIssuer   = "youbeam-core"
-	TicketAudience = "youbeam-stream"
-)
-
 // ticketKeyLocations son las rutas donde se busca la clave pública de tickets, en orden:
 // variable de entorno, Docker secret (con y sin extensión) y deploy/secrets para desarrollo local.
 func ticketKeyLocations() []string {

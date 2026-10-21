@@ -12,35 +12,23 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-// maxOfferBytes limita el cuerpo de /offer: una oferta SDP real ocupa unos pocos KB.
-const maxOfferBytes = 64 << 10
-
 type OfferRequest struct {
 	SDP    string `json:"sdp"`
 	Ticket string `json:"ticket"`
 }
 
-func HandleOffer(w http.ResponseWriter, r *http.Request, api *webrtc.API, repo VideoRepository, storage StorageService, ticketKey *ecdsa.PublicKey) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
-		return
-	}
-
+func HandleOffer(w http.ResponseWriter, r *http.Request, api *webrtc.API, repo VideoRepository, storage StorageService, key *ecdsa.PublicKey) {
 	var req OfferRequest
-	r.Body = http.MaxBytesReader(w, r.Body, maxOfferBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "JSON inválido", http.StatusBadRequest)
 		return
 	}
 
-	// 1. Validar JWT (la clave se carga una sola vez al arrancar)
+	// 1. Validar JWT (la clave pública se carga una sola vez al arrancar, ver keys.go)
 	claims := jwt.MapClaims{}
-	// Solo ES256, con exp, emitido por el Core y dirigido a este servidor: un ticket firmado
-	// para otro servicio no se acepta aquí
 	token, err := jwt.ParseWithClaims(req.Ticket, claims, func(t *jwt.Token) (interface{}, error) {
-		return ticketKey, nil
-	}, jwt.WithValidMethods([]string{"ES256"}), jwt.WithExpirationRequired(),
-		jwt.WithIssuer(TicketIssuer), jwt.WithAudience(TicketAudience))
+		return key, nil
+	}, jwt.WithValidMethods([]string{"ES256"}), jwt.WithExpirationRequired())
 
 	if err != nil || !token.Valid {
 		slog.Warn("Ticket JWT Inválido", "error", err)
