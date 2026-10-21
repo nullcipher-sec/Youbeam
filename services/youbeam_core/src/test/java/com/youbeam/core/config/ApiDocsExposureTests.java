@@ -40,7 +40,10 @@ class ApiDocsExposureTests {
         void scalarAndOpenApiDocumentAreAvailable() throws Exception {
             mockMvc.perform(get("/scalar"))
                     .andExpect(status().isOk())
-                    .andExpect(content().string(containsString("YouBeam API")));
+                    .andExpect(content().string(containsString("YouBeam API")))
+                    // El tema propio viaja embebido en la página: CSS de marca y favicon como data URI
+                    .andExpect(content().string(containsString("--youbeam-mark")))
+                    .andExpect(content().string(containsString("\"favicon\":\"data:image/svg+xml;base64,")));
 
             mockMvc.perform(get("/v3/api-docs"))
                     .andExpect(status().isOk())

@@ -38,7 +38,7 @@ import java.util.UUID;
  * CRUD de videos. El catálogo y la consulta de un video son públicos; el resto exige sesión.
  * Solo el dueño edita o borra.
  */
-@Tag(name = "Videos", description = "Video metadata management")
+@Tag(name = "Videos", description = "Gestión de los metadatos de los videos")
 @RestController
 @RequestMapping("/api/videos")
 @RequiredArgsConstructor
@@ -47,7 +47,7 @@ public class VideoController {
     private final IVideoService videoService;
     private final IPlaybackTicketService playbackTicketService;
 
-    @Operation(summary = "Create a video", description = "New videos are private and pending upload.",
+    @Operation(summary = "Crear un video", description = "Los videos nuevos son privados y quedan pendientes de subida.",
             security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @PostMapping
     public ResponseEntity<VideoResponse> create(@Valid @RequestBody CreateVideoRequest request,
@@ -55,22 +55,22 @@ public class VideoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(videoService.create(request, user));
     }
 
-    @Operation(summary = "List my videos", security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
+    @Operation(summary = "Listar mis videos", security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @GetMapping
     public ResponseEntity<List<VideoResponse>> listOwn(AuthenticatedUser user) {
         return ResponseEntity.ok(videoService.listOwn(user));
     }
 
     // El tamaño de página está acotado para que nadie pueda volcar todo el catálogo en una petición
-    @Operation(summary = "Public catalog", description = "Public and ready videos, newest first. No session needed.")
+    @Operation(summary = "Catálogo público", description = "Videos públicos y listos, del más reciente al más antiguo. No requiere sesión.")
     @GetMapping("/catalog")
     public ResponseEntity<List<VideoResponse>> catalog(@RequestParam(defaultValue = "0") @Min(0) int page,
                                                        @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
         return ResponseEntity.ok(videoService.catalog(page, size));
     }
 
-    @Operation(summary = "Get a video",
-            description = "Public and hidden videos are visible to anyone with the id; private ones only to the owner.")
+    @Operation(summary = "Consultar un video",
+            description = "Los videos públicos y ocultos los ve cualquiera que tenga el id; los privados, solo su dueño.")
     @GetMapping("/{id}")
     public ResponseEntity<VideoResponse> get(@PathVariable UUID id,
                                              @Parameter(hidden = true) Optional<AuthenticatedUser> user)
@@ -79,8 +79,8 @@ public class VideoController {
     }
 
     // no-store: el ticket es una credencial y no debe quedar en cachés del navegador ni de proxies
-    @Operation(summary = "Get a playback ticket",
-            description = "Short-lived ES256 JWT for the Streaming Server. 403 if the caller cannot view the video.")
+    @Operation(summary = "Obtener un ticket de reproducción",
+            description = "JWT ES256 de corta duración para el Streaming Server. Responde 403 si el usuario no puede ver el video.")
     @GetMapping("/{id}/play")
     public ResponseEntity<PlaybackTicketResponse> play(@PathVariable UUID id,
                                                        @Parameter(hidden = true) Optional<AuthenticatedUser> user)
@@ -90,7 +90,7 @@ public class VideoController {
                 .body(playbackTicketService.issue(id, user.orElse(null)));
     }
 
-    @Operation(summary = "Update a video", description = "Only the owner can update. Absent fields are kept.",
+    @Operation(summary = "Actualizar un video", description = "Solo el dueño puede actualizarlo. Los campos ausentes se conservan.",
             security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @PatchMapping("/{id}")
     public ResponseEntity<VideoResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateVideoRequest request,
@@ -98,7 +98,7 @@ public class VideoController {
         return ResponseEntity.ok(videoService.update(id, request, user));
     }
 
-    @Operation(summary = "Delete a video", description = "Only the owner can delete. Soft delete.",
+    @Operation(summary = "Eliminar un video", description = "Solo el dueño puede eliminarlo. Es un borrado lógico (soft delete).",
             security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id, AuthenticatedUser user) throws ControllerException {

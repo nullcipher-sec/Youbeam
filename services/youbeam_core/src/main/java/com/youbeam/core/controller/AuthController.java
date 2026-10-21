@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Registro, inicio y cierre de sesión. El token de sesión solo viaja en una cookie HttpOnly.
  */
-@Tag(name = "Auth", description = "Registration, login and session management")
+@Tag(name = "Autenticación", description = "Registro, inicio de sesión y gestión de sesiones")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -38,14 +38,14 @@ public class AuthController {
     private final ISessionService sessionService;
     private final SessionCookies sessionCookies;
 
-    @Operation(summary = "Register a new user", description = "Password is stored as an Argon2id hash.")
+    @Operation(summary = "Registrar un usuario", description = "La contraseña se almacena como hash Argon2id.")
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request)
             throws ControllerException {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
-    @Operation(summary = "Log in", description = "Sets the HttpOnly session cookie on success.")
+    @Operation(summary = "Iniciar sesión", description = "Si las credenciales son válidas, establece la cookie de sesión HttpOnly.")
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request,
                                               HttpServletRequest httpRequest) throws ControllerException {
@@ -56,7 +56,7 @@ public class AuthController {
                 .body(result.user());
     }
 
-    @Operation(summary = "Current user", security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
+    @Operation(summary = "Usuario actual", security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(AuthenticatedUser user) {
         return ResponseEntity.ok(user.toUserResponse());
@@ -66,7 +66,7 @@ public class AuthController {
      * Revoca la sesión en la base de datos y borra la cookie. Responde 204 aunque no hubiera
      * sesión, para no revelar si el token era válido.
      */
-    @Operation(summary = "Log out", description = "Revokes the session and clears the cookie.",
+    @Operation(summary = "Cerrar sesión", description = "Revoca la sesión y borra la cookie.",
             security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest httpRequest) {
