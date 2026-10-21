@@ -6,6 +6,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -19,10 +21,12 @@ class YoubeamCoreApplicationTests {
     void contextLoads() {
     }
 
+    // No se asume que las tablas estén vacías: otras clases de test comparten esta misma base de datos
     @Test
     void databaseSchemaIsAvailable() {
-        Integer users = jdbcTemplate.queryForObject("SELECT count(*) FROM users", Integer.class);
+        List<String> tables = jdbcTemplate.queryForList(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'", String.class);
 
-        assertThat(users).isZero();
+        assertThat(tables).contains("users", "sessions", "videos", "video_assets", "categories");
     }
 }
