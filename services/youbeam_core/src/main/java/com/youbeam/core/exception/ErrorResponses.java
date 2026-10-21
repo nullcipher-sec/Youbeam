@@ -23,6 +23,12 @@ public final class ErrorResponses {
     public static final ErrorResponse NOT_FOUND = new ErrorResponse(HttpStatus.NOT_FOUND,
             "Resource not found");
 
+    public static final ErrorResponse INVALID_CREDENTIALS = new ErrorResponse(HttpStatus.UNAUTHORIZED,
+            "Invalid username or password");
+
+    public static final ErrorResponse USER_ALREADY_EXISTS = new ErrorResponse(HttpStatus.CONFLICT,
+            "Username or email already registered");
+
     private ErrorResponses() {
     }
 }
