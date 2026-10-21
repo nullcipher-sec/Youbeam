@@ -2,12 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
 	"database/sql"
-	"encoding/pem"
 	"log/slog"
 	"net/http"
 	"os"
@@ -28,14 +23,13 @@ func main() {
 	slog.SetDefault(logger)
 	slog.Info("Iniciando YouBeam Streaming Server...")
 
-	// Si no estamos en Docker, generamos la llave local para pruebas
-	if _, err := os.Stat("/run/secrets/jwt_public.pem"); os.IsNotExist(err) {
-		slog.Warn("No se encontró llave en secrets, generando una local para pruebas...")
-		privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		pubBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
-		pubPem := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
-		os.WriteFile("jwt_public.pem", pubPem, 0644)
+	// Clave pública de tickets: obligatoria, sin ella no se puede verificar ningún ticket
+	ticketKey, keyPath, err := LoadTicketPublicKey()
+	if err != nil {
+		slog.Error("No se pudo cargar la clave pública de tickets", "err", err)
+		os.Exit(1)
 	}
+	slog.Info("Clave pública de tickets cargada", "path", keyPath)
 
 	// Configurar Pion (DTLS-SRTP)
 	s := webrtc.SettingEngine{}
@@ -54,9 +48,16 @@ func main() {
 	dbURL := os.Getenv("DATABASE_URL")
 	minioURL := os.Getenv("MINIO_ENDPOINT")
 
-	if dbURL != "" && minioURL != "" {
+	// Los mocks se activan solo de forma explícita: un despliegue con variables olvidadas debe
+	// fallar, no funcionar con el anti-replay en memoria y videos leídos del disco local
+	switch {
+	case os.Getenv("STREAM_USE_MOCKS") == "true":
+		slog.Warn("STREAM_USE_MOCKS=true: usando MOCKS (solo para pruebas locales)")
+		repo = &MockDatabase{}
+		storage = &LocalStorage{}
+	case dbURL != "" && minioURL != "":
 		slog.Info("Conectando a Infraestructura Real (Postgres + MinIO)...")
-		
+
 		db, err := sql.Open("postgres", dbURL)
 		if err != nil { slog.Error("Error DB", "err", err); os.Exit(1) }
 		repo = &PostgresRepository{DB: db}
@@ -67,10 +68,9 @@ func main() {
 		})
 		if err != nil { slog.Error("Error MinIO", "err", err); os.Exit(1) }
 		storage = &MinioStorage{Client: minioClient}
-	} else {
-		slog.Warn("Variables de entorno no encontradas. Usando MOCKS para pruebas locales.")
-		repo = &MockDatabase{}
-		storage = &LocalStorage{}
+	default:
+		slog.Error("Faltan DATABASE_URL y MINIO_ENDPOINT (o STREAM_USE_MOCKS=true para pruebas locales)")
+		os.Exit(1)
 	}
 	// =========================================================================
 
@@ -82,23 +82,24 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// Servir el HTML de prueba local (opcional)
-	muxHttp.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "index.html")
-	})
-
 	// Endpoint de señalización
 	muxHttp.HandleFunc("/offer", func(w http.ResponseWriter, r *http.Request) {
-		HandleOffer(w, r, api, repo, storage)
+		HandleOffer(w, r, api, repo, storage, ticketKey)
 	})
 
+	// Puerto configurable: en local el Core ya ocupa el 8080
+	addr := os.Getenv("STREAM_HTTP_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
 	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: muxHttp,
+		Addr:              addr,
+		Handler:           muxHttp,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {
-		slog.Info("Servidor escuchando en http://0.0.0.0:8080")
+		slog.Info("Servidor escuchando", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Fallo crítico en el servidor HTTP (¿Puerto ocupado?)", "err", err)
 			os.Exit(1) 
