@@ -4,11 +4,16 @@ import com.youbeam.core.Interface.IAuthService;
 import com.youbeam.core.Interface.ISessionService;
 import com.youbeam.core.commons.AuthenticatedUser;
 import com.youbeam.core.commons.SessionCookies;
+import com.youbeam.core.config.OpenApiConfig;
 import com.youbeam.core.exception.ControllerException;
 import com.youbeam.core.model.request.LoginRequest;
 import com.youbeam.core.model.request.RegisterRequest;
 import com.youbeam.core.model.response.LoginResult;
 import com.youbeam.core.model.response.UserResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Registro, inicio y cierre de sesión. El token de sesión solo viaja en una cookie HttpOnly.
  */
+@Tag(name = "Auth", description = "Registration, login and session management")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -33,12 +39,14 @@ public class AuthController {
     private final ISessionService sessionService;
     private final SessionCookies sessionCookies;
 
+    @Operation(summary = "Register a new user", description = "Password is stored as an Argon2id hash.")
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request)
             throws ControllerException {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
+    @Operation(summary = "Log in", description = "Sets the HttpOnly session cookie on success.")
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request,
                                               HttpServletRequest httpRequest) throws ControllerException {
@@ -49,8 +57,9 @@ public class AuthController {
                 .body(result.user());
     }
 
+    @Operation(summary = "Current user", security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> me(AuthenticatedUser user) {
+    public ResponseEntity<UserResponse> me(@Parameter(hidden = true) AuthenticatedUser user) {
         return ResponseEntity.ok(user.toUserResponse());
     }
 
@@ -58,6 +67,8 @@ public class AuthController {
      * Revoca la sesión en la base de datos y borra la cookie. Responde 204 aunque no hubiera
      * sesión, para no revelar si el token era válido.
      */
+    @Operation(summary = "Log out", description = "Revokes the session and clears the cookie.",
+            security = @SecurityRequirement(name = OpenApiConfig.SESSION_COOKIE_SCHEME))
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest httpRequest) {
         sessionCookies.read(httpRequest).ifPresent(sessionService::revoke);
