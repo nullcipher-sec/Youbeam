@@ -1,31 +1,31 @@
-# Build stage
+# Etapa de compilación
 FROM maven:3.9-eclipse-temurin-21 AS build
 
 WORKDIR /usr/src/app
 
-# Copy pom.xml first so the dependency layer is cached while pom.xml doesn't change
+# Se copia primero el pom.xml para cachear la capa de dependencias mientras no cambie
 COPY pom.xml ./
 RUN mvn dependency:go-offline -B -q
 
 COPY src ./src
 RUN mvn clean package -DskipTests -B -q
 
-# Extract the Spring Boot jar into layers (dependencies change less than application code)
+# Extrae el jar de Spring Boot por capas (las dependencias cambian menos que el código)
 RUN java -Djarmode=tools -jar target/youbeam-core-*.jar extract --layers --launcher --destination extracted
 
-# Runtime stage: JRE only
+# Etapa de ejecución: solo JRE
 FROM eclipse-temurin:21-jre-alpine
 
-# curl for HEALTHCHECK, latest security patches
+# curl para el HEALTHCHECK y últimos parches de seguridad
 RUN apk upgrade --no-cache && apk add --no-cache curl
 
-# Non-root user for security
+# Usuario sin privilegios de root por seguridad
 RUN addgroup -S appuser \
     && adduser -S -G appuser -h /app -s /sbin/nologin appuser
 
 WORKDIR /app
 
-# Copy jar layers from least to most frequently changed
+# Copia las capas del jar de la que menos cambia a la que más
 COPY --from=build --chown=appuser:appuser /usr/src/app/extracted/dependencies/ ./
 COPY --from=build --chown=appuser:appuser /usr/src/app/extracted/spring-boot-loader/ ./
 COPY --from=build --chown=appuser:appuser /usr/src/app/extracted/snapshot-dependencies/ ./
@@ -38,7 +38,7 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-# JVM options for containers, overridable at runtime with JAVA_OPTS
+# Opciones de la JVM para contenedores, sobrescribibles en ejecución con JAVA_OPTS
 ENV SPRING_PROFILES_ACTIVE=prod \
     JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
 

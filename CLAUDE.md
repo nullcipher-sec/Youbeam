@@ -39,9 +39,10 @@ o la relación entre componentes:
 ## 5. Idioma
 
 - Responder al usuario en español.
-- Código, identificadores y mensajes de commit en inglés.
+- Código, identificadores, mensajes de commit y mensajes de log/error en inglés.
+- **Todos los comentarios en español**: Javadoc, `//`, `#` en `.properties`, `Dockerfile`,
+  `.gitignore`, scripts, etc.
 - Configuración de Spring Boot en `application.properties` (no YAML).
-- Comentarios Javadoc (`/** ... */`, incluidos `package-info.java`) en español.
 - `youbeam_core` sigue la estructura de Airtek Channels: paquetes `Interface`, `service`,
   `controller`, `repository`, `entity`, `model/request`, `model/response`, `exception`,
   `config`, `commons`, `enums`, `util`; perfiles `dev`/`prod`; errores con `ControllerException`

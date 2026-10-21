@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Blocks git commits / PRs that credit Claude as author or co-author.
+# Bloquea commits / PRs de git que acrediten a Claude como autor o coautor.
 cmd=$(jq -r '.tool_input.command // empty')
 
 case "$cmd" in

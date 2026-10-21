@@ -3,9 +3,9 @@
 !.env.example
 **/!.env.example
 
-# Claude Code (local, per-user)
+# Claude Code (local, por usuario)
 .claude/settings.local.json
 
-# IDE and generated knowledge graph (local)
+# IDE y grafo de conocimiento generado (local)
 .idea/
 graphify-out/
