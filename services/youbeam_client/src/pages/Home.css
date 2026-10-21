@@ -8,8 +8,13 @@
 
 .home-content {
   flex: 1;
-  padding: clamp(32px, 7vw, 100px);
+  min-width: 0;
+  padding: 18px clamp(24px, 4vw, 64px) clamp(32px, 7vw, 100px);
   transition: background 0.25s ease, color 0.25s ease;
+}
+
+.home-main {
+  padding-top: clamp(46px, 8vw, 104px);
 }
 
 .home-eyebrow {

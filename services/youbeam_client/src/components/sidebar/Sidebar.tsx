@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './sidebar.css'
 
-type SidebarItem = 'dashboard' | 'videos' | 'private' | 'hidden' | 'free' | 'settings'
+type SidebarItem = 'home' | 'videos' | 'private' | 'hidden' | 'settings'
 
 type SidebarProps = {
     activeItem?: SidebarItem
@@ -9,16 +9,14 @@ type SidebarProps = {
     darkMode?: boolean
 }
 
-type IconName = 'dashboard' | 'video' | 'lock' | 'eye' | 'globe' | 'settings' | 'sun' | 'moon'
+type IconName = 'home' | 'video' | 'lock' | 'eye' | 'settings' | 'sun' | 'moon'
 
 function Icon({ name }: { name: IconName }) {
-    if (name === 'dashboard') {
+    if (name === 'home') {
         return (
             <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="4" y="4" width="6" height="6" rx="1" />
-                <rect x="14" y="4" width="6" height="6" rx="1" />
-                <rect x="4" y="14" width="6" height="6" rx="1" />
-                <rect x="14" y="14" width="6" height="6" rx="1" />
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
         )
     }
@@ -43,14 +41,6 @@ function Icon({ name }: { name: IconName }) {
             <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M2.5 12s3.2-5 9.5-5 9.5 5 9.5 5-3.2 5-9.5 5-9.5-5-9.5-5Z" />
                 <circle cx="12" cy="12" r="2.5" />
-            </svg>
-        )
-    }
-    if (name === 'globe') {
-        return (
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="8.5" />
-                <path d="M3.8 12h16.4M12 3.5c2.2 2.3 3.2 5.1 3.2 8.5s-1 6.2-3.2 8.5c-2.2-2.3-3.2-5.1-3.2-8.5S9.8 5.8 12 3.5Z" />
             </svg>
         )
     }
@@ -88,14 +78,13 @@ function Icon({ name }: { name: IconName }) {
 }
 
 const mainItems: Array<{ id: SidebarItem; label: string; icon: IconName }> = [
-    { id: 'dashboard', label: 'Panel', icon: 'dashboard' },
+    { id: 'home', label: 'Inicio', icon: 'home' },
     { id: 'videos', label: 'Mis videos', icon: 'video' },
     { id: 'private', label: 'Privados', icon: 'lock' },
     { id: 'hidden', label: 'Ocultos', icon: 'eye' },
-    { id: 'free', label: 'Libres', icon: 'globe' },
 ]
 
-function Sidebar({ activeItem = 'videos', onNavigate, darkMode = false }: SidebarProps) {
+function Sidebar({ activeItem = 'home', onNavigate, darkMode = false }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(true)
     const [selectedItem, setSelectedItem] = useState<SidebarItem>(activeItem)
 
@@ -114,20 +103,6 @@ function Sidebar({ activeItem = 'videos', onNavigate, darkMode = false }: Sideba
                 <div className="sidebar-brand">
                     <span className="brand-mark">▶</span>
                     <span className="brand-copy">You<span>Beam</span></span>
-                </div>
-
-                <div className="sidebar-user">
-                    <div className="user-avatar-wrapper">
-                        <img
-                            className="user-avatar"
-                            src="https://i.pravatar.cc/100?u=youbeam-demo"
-                            alt="Perfil de usuario"
-                        />
-                    </div>
-                    <div className="username-block">
-                        <span className="username">arrias24</span>
-                        <span className="username-caption">Cuenta personal</span>
-                    </div>
                 </div>
 
                 <div className="sidebar-scrollable">
@@ -164,7 +139,6 @@ function Sidebar({ activeItem = 'videos', onNavigate, darkMode = false }: Sideba
                         </div>
                         <span className="item-label">Configuración</span>
                     </button>
-
                 </div>
             </div>
         </aside>
