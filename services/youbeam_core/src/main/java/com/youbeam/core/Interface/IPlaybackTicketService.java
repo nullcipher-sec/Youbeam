@@ -15,4 +15,10 @@ public interface IPlaybackTicketService {
      * @param user usuario de la petición, o {@code null} si no hay sesión
      */
     PlaybackTicketResponse issue(UUID videoId, AuthenticatedUser user) throws ControllerException;
+
+    /**
+     * Comprueba firma ES256, emisor, audiencia y caducidad. No comprueba reutilización: eso lo
+     * hace el Streaming Server con el {@code jti}.
+     */
+    boolean isValid(String ticket);
 }

@@ -5,6 +5,7 @@ import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
+import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.text.ParseException;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
@@ -43,6 +45,7 @@ public class PlaybackTicketService implements IPlaybackTicketService {
     private final JwtProperties properties;
     private final ECKey signingKey;
     private final ECDSASigner signer;
+    private final ECDSAVerifier verifier;
     private final Clock clock;
 
     public PlaybackTicketService(VideoRepository videoRepository, VideoAccessPolicy accessPolicy,
@@ -52,6 +55,7 @@ public class PlaybackTicketService implements IPlaybackTicketService {
         this.properties = properties;
         this.signingKey = ticketSigningKey;
         this.signer = new ECDSASigner(ticketSigningKey);
+        this.verifier = new ECDSAVerifier(ticketSigningKey.toPublicJWK());
         this.clock = Clock.systemUTC();
     }
 
@@ -91,5 +95,23 @@ public class PlaybackTicketService implements IPlaybackTicketService {
             throw new ControllerException(ErrorResponses.INTERNAL_SERVER_ERROR, ex);
         }
         return new PlaybackTicketResponse(jwt.serialize(), expiresAt);
+    }
+
+    @Override
+    public boolean isValid(String ticket) {
+        try {
+            SignedJWT jwt = SignedJWT.parse(ticket);
+            // Se exige ES256 explícitamente: nunca se confía en el algoritmo que diga la cabecera
+            if (!JWSAlgorithm.ES256.equals(jwt.getHeader().getAlgorithm()) || !jwt.verify(verifier)) {
+                return false;
+            }
+            JWTClaimsSet claims = jwt.getJWTClaimsSet();
+            return claims.getExpirationTime() != null
+                    && claims.getExpirationTime().toInstant().isAfter(clock.instant())
+                    && properties.issuer().equals(claims.getIssuer())
+                    && claims.getAudience().contains(properties.audience());
+        } catch (ParseException | JOSEException ex) {
+            return false;
+        }
     }
 }

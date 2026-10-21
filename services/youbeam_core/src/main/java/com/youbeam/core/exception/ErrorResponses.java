@@ -32,6 +32,15 @@ public final class ErrorResponses {
     public static final ErrorResponse VIDEO_NOT_READY = new ErrorResponse(HttpStatus.CONFLICT,
             "Video is not ready for playback");
 
+    public static final ErrorResponse INVALID_TICKET = new ErrorResponse(HttpStatus.UNAUTHORIZED,
+            "Invalid or expired playback ticket");
+
+    public static final ErrorResponse TICKET_ALREADY_USED = new ErrorResponse(HttpStatus.FORBIDDEN,
+            "Playback ticket already used");
+
+    public static final ErrorResponse STREAM_UNAVAILABLE = new ErrorResponse(HttpStatus.BAD_GATEWAY,
+            "Streaming service unavailable");
+
     private ErrorResponses() {
     }
 }
