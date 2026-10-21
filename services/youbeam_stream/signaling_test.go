@@ -50,6 +50,8 @@ func TestHandleOfferWithValidTicketButInvalidSDP(t *testing.T) {
 		"vid": "video-123",
 		"jti": "test-unique-jti",
 		"exp": time.Now().Add(1 * time.Hour).Unix(),
+		"iss": TicketIssuer,
+		"aud": TicketAudience,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	validTicket, _ := token.SignedString(privateKey)
@@ -65,6 +67,33 @@ func TestHandleOfferWithValidTicketButInvalidSDP(t *testing.T) {
 	// El servidor NO debe colgarse. Debe devolver un 400 Bad Request.
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Se esperaba código 400 (SDP inválido), se obtuvo %d", w.Code)
+	}
+}
+
+func TestHandleOfferRejectsTicketForAnotherAudienceOrIssuer(t *testing.T) {
+	privateKey := setupTestKeys(t)
+	cases := map[string]jwt.MapClaims{
+		"otra audiencia": {"iss": TicketIssuer, "aud": "otro-servicio"},
+		"otro emisor":    {"iss": "atacante", "aud": TicketAudience},
+		"sin aud ni iss": {},
+	}
+
+	for name, extra := range cases {
+		t.Run(name, func(t *testing.T) {
+			claims := jwt.MapClaims{"vid": "video-123", "jti": "jti-" + name, "exp": time.Now().Add(time.Minute).Unix()}
+			for k, v := range extra {
+				claims[k] = v
+			}
+			ticket, _ := jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(privateKey)
+			req := httptest.NewRequest(http.MethodPost, "/offer", strings.NewReader(`{"sdp": "v=0", "ticket": "`+ticket+`"}`))
+			w := httptest.NewRecorder()
+
+			HandleOffer(w, req, webrtc.NewAPI(), &MockDatabase{}, &LocalStorage{}, &privateKey.PublicKey)
+
+			if w.Code != http.StatusUnauthorized {
+				t.Errorf("Se esperaba 401, se obtuvo %d", w.Code)
+			}
+		})
 	}
 }
 

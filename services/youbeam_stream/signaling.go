@@ -26,9 +26,12 @@ func HandleOffer(w http.ResponseWriter, r *http.Request, api *webrtc.API, repo V
 
 	// 1. Validar JWT (la clave pública se carga una sola vez al arrancar, ver keys.go)
 	claims := jwt.MapClaims{}
+	// Además de ES256 y exp: emitido por el Core y dirigido a este servidor, para no aceptar
+	// un ticket firmado para otro servicio
 	token, err := jwt.ParseWithClaims(req.Ticket, claims, func(t *jwt.Token) (interface{}, error) {
 		return key, nil
-	}, jwt.WithValidMethods([]string{"ES256"}), jwt.WithExpirationRequired())
+	}, jwt.WithValidMethods([]string{"ES256"}), jwt.WithExpirationRequired(),
+		jwt.WithIssuer(TicketIssuer), jwt.WithAudience(TicketAudience))
 
 	if err != nil || !token.Valid {
 		slog.Warn("Ticket JWT Inválido", "error", err)
