@@ -5,6 +5,7 @@ import FilterBar from '../components/filter-bar/FilterBar'
 import MyVideos from '../components/my-videos/MyVideos'
 import PageEnumeration from '../components/page-enumeration/PageEnumeration'
 import Sidebar from '../components/sidebar/Sidebar'
+import StreamingPlayer from '../components/streaming-player/StreamingPlayer'
 import UploadVideo from '../components/upload-video/UploadVideo'
 import VideoPlayer from '../components/video-player/VideoPlayer'
 import type { SidebarItem } from '../components/sidebar/Sidebar'
@@ -290,6 +291,8 @@ function Home() {
                 setActiveItem('home')
                 setPanel('upload')
               }} />
+            ) : activeItem === 'streaming' ? (
+              <StreamingPlayer />
             ) : panel === 'upload' ? (
               <UploadVideo onCancel={() => setPanel('catalog')} onComplete={() => {
                 setPanel('catalog')
