@@ -453,6 +453,10 @@
   opacity: 1;
 }
 
+.form-message.is-error {
+  color: #c51627;
+}
+
 @media (max-width: 768px) {
   .authentication-page {
     padding: 16px;

@@ -63,11 +63,61 @@
   background: #fff;
 }
 
-.my-video-row > img {
+.my-video-thumbnail {
+  position: relative;
+  display: grid;
+  place-items: center;
   width: 150px;
   aspect-ratio: 16 / 9;
   border-radius: 8px;
-  object-fit: cover;
+  color: rgba(255, 255, 255, .92);
+  background: linear-gradient(135deg, #17233f, #5275b5 60%, #c51627);
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.my-video-thumbnail span {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, .65);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.my-video-link {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  color: #5275b5;
+  background: none;
+  cursor: copy;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.my-video-upload {
+  position: relative;
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: #fff;
+  background: #17233f;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.my-video-upload.is-busy { opacity: .6; cursor: wait; }
+
+.my-video-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: inherit;
 }
 
 .my-video-info {
@@ -124,7 +174,7 @@
   background: #fff4d7;
 }
 
-.status-chip--failed {
+.status-chip--error {
   color: #9b2c39;
   background: #ffe7ea;
 }
@@ -177,7 +227,7 @@
     grid-template-columns: 110px minmax(0, 1fr);
   }
 
-  .my-video-row > img {
+  .my-video-thumbnail {
     width: 110px;
   }
 

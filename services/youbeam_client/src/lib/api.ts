@@ -1,11 +1,13 @@
-import type { Video, VideoVisibility } from '../types/video'
+import type { Video, VideoDraft } from '../types/video'
 
 const API_PREFIX = '/api'
 
+// Usuario autenticado (UserResponse del Core)
 export type CurrentUser = {
   id: string
-  username?: string
-  displayName?: string
+  username: string
+  email: string
+  displayName: string | null
 }
 
 export class ApiError extends Error {
@@ -16,7 +18,6 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
   }
-
 }
 
 function apiUrl(path: string): string {
@@ -26,10 +27,22 @@ function apiUrl(path: string): string {
     : `${API_PREFIX}${normalizedPath}`
 }
 
+// El Core responde los errores como { status, code, message }; si no, se usa el texto tal cual
+function errorMessage(body: string, status: number): string {
+  try {
+    const parsed: unknown = JSON.parse(body)
+    if (typeof parsed === 'object' && parsed !== null && 'message' in parsed) return String(parsed.message)
+  } catch {
+    // El cuerpo no es JSON
+  }
+  return body || `La petición falló con estado ${status}.`
+}
+
 export async function apiFetch<T>(
   path: string,
   init: Omit<RequestInit, 'credentials'> = {},
 ): Promise<T> {
+  // La cookie de sesión es HttpOnly: el navegador la envía sola, el código nunca la ve
   const response = await fetch(apiUrl(path), {
     ...init,
     credentials: 'include',
@@ -37,20 +50,39 @@ export async function apiFetch<T>(
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new ApiError(message || `API request failed with status ${response.status}`, response.status)
+    throw new ApiError(errorMessage(await response.text(), response.status), response.status)
   }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
 
-export function getApiErrorMessage(error: unknown): string {
-  if (!(error instanceof ApiError)) return 'Ocurrió un error inesperado. Inténtalo de nuevo.'
-  if (error.status === 401) return 'Tu sesión ha expirado. Inicia sesión para continuar.'
-  if (error.status === 403) return 'No tienes permisos para realizar esta acción.'
-  if (error.status === 404) return 'El recurso solicitado no existe o ya no está disponible.'
-  return error.message
+function jsonBody(method: string, body: unknown): Omit<RequestInit, 'credentials'> {
+  return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
+
+export function getApiErrorMessage(error: unknown): string {
+  // Errores del navegador (p. ej. WebRTC) traen un mensaje propio, que es más útil que uno genérico
+  if (!(error instanceof ApiError)) {
+    return error instanceof Error && error.message ? error.message : 'Ocurrió un error inesperado. Inténtalo de nuevo.'
+  }
+  switch (error.status) {
+    case 0: return error.message
+    case 400: return 'Los datos enviados no son válidos. Revisa el formulario.'
+    case 401: return 'Tu sesión ha expirado o no has iniciado sesión.'
+    case 403: return 'No tienes permisos para realizar esta acción.'
+    case 404: return 'El recurso solicitado no existe o ya no está disponible.'
+    case 409: return error.message === 'Username or email already registered'
+      ? 'El usuario o el correo ya están registrados.'
+      : 'La operación entra en conflicto con el estado actual del video.'
+    case 413: return 'El archivo supera el tamaño máximo permitido.'
+    case 415: return 'Formato no admitido. Usa MP4, WebM, MOV o MKV.'
+    case 422: return 'El archivo no es un video válido o no se pudo procesar.'
+    case 502: return 'El servicio de streaming no está disponible.'
+    default: return error.message
+  }
+}
+
+// ── Autenticación ──
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   try {
@@ -63,60 +95,55 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   }
 }
 
-export async function requestPlaybackTicket(videoId: string): Promise<string> {
-  const response = await apiFetch<{ ticket?: string } | string>(`/videos/${encodeURIComponent(videoId)}/play`)
-  const ticket = typeof response === 'string' ? response : response.ticket
-  if (!ticket) throw new ApiError('The playback ticket was not included in the API response.', 502)
-  return ticket
+export function register(data: { username: string; email: string; password: string; displayName?: string }) {
+  return apiFetch<CurrentUser>('/auth/register', jsonBody('POST', data))
 }
 
-export async function negotiateStreamOffer(sdp: string, ticket: string): Promise<string> {
-  const response = await apiFetch<{ sdp?: string } | string>('/stream/offer', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sdp, ticket }),
-  })
-  const answerSdp = typeof response === 'string' ? response : response.sdp
-  if (!answerSdp) throw new ApiError('The WebRTC answer was not included in the API response.', 502)
-  return answerSdp
+export function login(data: { login: string; password: string }) {
+  return apiFetch<CurrentUser>('/auth/login', jsonBody('POST', data))
 }
 
-export async function listPublicVideos(): Promise<Video[]> {
-  return apiFetch<Video[]>('/videos/public')
+export function logout() {
+  return apiFetch<void>('/auth/logout', { method: 'POST' })
 }
 
-export async function listMyVideos(): Promise<Video[]> {
-  return apiFetch<Video[]>('/videos/me')
+// ── Videos ──
+
+export function listCatalog(page: number, size: number): Promise<Video[]> {
+  return apiFetch<Video[]>(`/videos/catalog?page=${page}&size=${size}`)
 }
 
-export async function updateVideo(
-  id: string,
-  changes: Pick<Video, 'title' | 'description' | 'visibility'>,
-): Promise<Video> {
-  return apiFetch<Video>(`/videos/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(changes),
-  })
+export function listMyVideos(): Promise<Video[]> {
+  return apiFetch<Video[]>('/videos')
+}
+
+export function getVideo(id: string): Promise<Video> {
+  return apiFetch<Video>(`/videos/${encodeURIComponent(id)}`)
+}
+
+export function createVideo(draft: VideoDraft): Promise<Video> {
+  return apiFetch<Video>('/videos', jsonBody('POST', draft))
+}
+
+export function updateVideo(id: string, changes: Partial<VideoDraft>): Promise<Video> {
+  return apiFetch<Video>(`/videos/${encodeURIComponent(id)}`, jsonBody('PATCH', changes))
 }
 
 export async function deleteVideo(id: string): Promise<void> {
   await apiFetch<void>(`/videos/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
-export function uploadVideo(
-  file: File,
-  metadata: { title: string; description: string; visibility: VideoVisibility },
-  onProgress: (progress: number) => void,
-): Promise<Video> {
+/**
+ * Sube el archivo de un video ya creado. Se usa XMLHttpRequest porque fetch no informa del
+ * progreso de subida. Al llegar al 100 % el Core todavía transcodifica y cifra el archivo,
+ * así que la respuesta puede tardar.
+ */
+export function uploadVideoFile(id: string, file: File, onProgress: (progress: number) => void): Promise<Video> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('title', metadata.title)
-    formData.append('description', metadata.description)
-    formData.append('visibility', metadata.visibility)
-    request.open('POST', `${API_PREFIX}/videos`)
+    request.open('POST', apiUrl(`/videos/${encodeURIComponent(id)}/upload`))
     request.withCredentials = true
     request.setRequestHeader('Accept', 'application/json')
     request.upload.addEventListener('progress', (event) => {
@@ -125,24 +152,39 @@ export function uploadVideo(
     request.addEventListener('error', () => reject(new ApiError('No se pudo conectar con el servidor.', 0)))
     request.addEventListener('abort', () => reject(new ApiError('La subida fue cancelada.', 0)))
     request.addEventListener('load', () => {
-      let response: unknown
+      if (request.status < 200 || request.status >= 300) {
+        reject(new ApiError(errorMessage(request.responseText, request.status), request.status))
+        return
+      }
       try {
-        response = request.responseText ? JSON.parse(request.responseText) : undefined
+        resolve(JSON.parse(request.responseText) as Video)
       } catch {
         reject(new ApiError('El servidor devolvió una respuesta inválida.', request.status))
-        return
       }
-      if (request.status < 200 || request.status >= 300) {
-        reject(new ApiError(
-          typeof response === 'object' && response !== null && 'message' in response
-            ? String(response.message)
-            : `La subida falló con estado ${request.status}.`,
-          request.status,
-        ))
-        return
-      }
-      resolve(response as Video)
     })
     request.send(formData)
   })
+}
+
+/**
+ * Publicar un video son dos pasos en el Core: crear sus metadatos y subir el archivo.
+ * Si la subida falla, el video queda creado y se puede reintentar desde "Mis videos".
+ */
+export async function uploadVideo(file: File, draft: VideoDraft, onProgress: (progress: number) => void): Promise<Video> {
+  const video = await createVideo(draft)
+  return uploadVideoFile(video.id, file, onProgress)
+}
+
+// ── Reproducción ──
+
+export async function requestPlaybackTicket(videoId: string): Promise<string> {
+  const response = await apiFetch<{ ticket?: string }>(`/videos/${encodeURIComponent(videoId)}/play`)
+  if (!response.ticket) throw new ApiError('La respuesta no incluye el ticket de reproducción.', 502)
+  return response.ticket
+}
+
+export async function negotiateStreamOffer(sdp: string, ticket: string): Promise<string> {
+  const response = await apiFetch<{ sdp?: string }>('/stream/offer', jsonBody('POST', { sdp, ticket }))
+  if (!response.sdp) throw new ApiError('La respuesta no incluye la respuesta WebRTC.', 502)
+  return response.sdp
 }

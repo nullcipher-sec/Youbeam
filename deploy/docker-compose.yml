@@ -18,5 +18,26 @@ services:
       timeout: 5s
       retries: 10
 
+  # Bucket S3 self-hosted. La imagen oficial minio/minio ya no se publica en Docker Hub; se usa la
+  # de Chainguard, que se compila desde el código de MinIO y corre sin root.
+  # Los puertos se publican solo en 127.0.0.1 para desarrollo local; en producción no se publican
+  # y solo el Core y el Streaming Server llegan a MinIO por la red interna.
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: youbeam-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-youbeam}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-change_this_minio_password}
+      # Sin comprobaciones de actualización contra servidores externos
+      MINIO_UPDATE: "off"
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - youbeam_minio_data:/data
+
 volumes:
   youbeam_postgres_data:
+  youbeam_minio_data:

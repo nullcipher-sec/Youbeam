@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { uploadVideo } from '../../lib/api'
-import type { VideoVisibility } from '../../types/video'
+import type { Video, VideoVisibility } from '../../types/video'
 import ApiFeedback from '../api-feedback/ApiFeedback'
 import './upload-video.css'
 
 type UploadVideoProps = {
   onCancel: () => void
-  onComplete: () => void
+  onComplete: (video: Video) => void
 }
 
 function UploadVideo({ onCancel, onComplete }: UploadVideoProps) {
@@ -23,10 +23,10 @@ function UploadVideo({ onCancel, onComplete }: UploadVideoProps) {
     event.preventDefault()
     if (!file) return
     setUploading(true)
+    setProgress(0)
     setError(null)
     try {
-      await uploadVideo(file, { title, description, visibility }, setProgress)
-      onComplete()
+      onComplete(await uploadVideo(file, { title: title.trim(), description, visibility }, setProgress))
     } catch (uploadError) {
       setError(uploadError)
     } finally {
@@ -40,23 +40,23 @@ function UploadVideo({ onCancel, onComplete }: UploadVideoProps) {
         <div>
           <span className="section-kicker">Publicar contenido</span>
           <h1>Subir video</h1>
-          <p>El archivo se procesará en segundo plano hasta quedar listo para reproducirse.</p>
+          <p>El servidor transcodifica el archivo y lo cifra (AES-256-GCM + HPKE) antes de guardarlo.</p>
         </div>
       </div>
       {error !== null && <ApiFeedback error={error} />}
       <form className="upload-form" onSubmit={handleSubmit}>
         <label className="upload-dropzone">
           <strong>{file ? file.name : 'Selecciona un archivo de video'}</strong>
-          <span>MP4, WebM o MOV · el backend validará tamaño y códec</span>
-          <input type="file" accept="video/*" required onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+          <span>MP4, WebM, MOV o MKV · máximo 2 GB</span>
+          <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" required onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
         </label>
         <label>
           <span>Título</span>
-          <input value={title} required maxLength={120} onChange={(event) => setTitle(event.target.value)} placeholder="Título del video" />
+          <input value={title} required maxLength={200} onChange={(event) => setTitle(event.target.value)} placeholder="Título del video" />
         </label>
         <label>
           <span>Descripción</span>
-          <textarea value={description} maxLength={2000} onChange={(event) => setDescription(event.target.value)} placeholder="Describe tu video" />
+          <textarea value={description} maxLength={5000} onChange={(event) => setDescription(event.target.value)} placeholder="Describe tu video" />
         </label>
         <label>
           <span>Visibilidad</span>
@@ -68,9 +68,12 @@ function UploadVideo({ onCancel, onComplete }: UploadVideoProps) {
         </label>
         {uploading && (
           <div className="upload-progress" aria-live="polite">
-            <div><span>Subiendo y procesando</span><strong>{progress}%</strong></div>
-            <progress value={progress} max="100" />
-            <small>El estado cambiará de processing a ready cuando el backend termine.</small>
+            <div>
+              <span>{progress < 100 ? 'Subiendo archivo' : 'Transcodificando y cifrando en el servidor...'}</span>
+              <strong>{progress}%</strong>
+            </div>
+            {progress < 100 ? <progress value={progress} max="100" /> : <progress />}
+            <small>El video queda listo para reproducirse cuando termina el cifrado.</small>
           </div>
         )}
         <div className="upload-actions">

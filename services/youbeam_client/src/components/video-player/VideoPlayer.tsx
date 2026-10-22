@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { getApiErrorMessage, negotiateStreamOffer, requestPlaybackTicket } from '../../lib/api'
+import { getApiErrorMessage } from '../../lib/api'
+import { createReceiver, startPlayback } from '../../lib/webrtc'
 import './video-player.css'
 
 type VideoPlayerProps = {
     videoId: string
     title: string
+    description?: string | null
     onClose: () => void
 }
 
-function VideoPlayer({ videoId, title, onClose }: VideoPlayerProps) {
+function VideoPlayer({ videoId, title, description, onClose }: VideoPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null)
-    const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
     const [status, setStatus] = useState(() => window.RTCPeerConnection ? 'Conectando con el servidor...' : '')
     const [error, setError] = useState<string | null>(() => window.RTCPeerConnection ? null : 'Este navegador no soporta reproducción WebRTC.')
 
@@ -20,61 +21,33 @@ function VideoPlayer({ videoId, title, onClose }: VideoPlayerProps) {
             return
         }
 
-        const peerConnection = new RTCPeerConnection()
-        peerConnectionRef.current = peerConnection
-
-        peerConnection.addTransceiver('video', { direction: 'recvonly' })
-        peerConnection.addTransceiver('audio', { direction: 'recvonly' })
-
-        peerConnection.ontrack = (event) => {
-            if (!videoRef.current || cancelled) {
-                return
-            }
-
-            const [stream] = event.streams
-            if (stream) {
-                videoRef.current.srcObject = stream
+        const peerConnection = createReceiver(() => (cancelled ? null : videoRef.current))
+        peerConnection.onconnectionstatechange = () => {
+            if (cancelled) return
+            if (peerConnection.connectionState === 'connected') setStatus('')
+            if (peerConnection.connectionState === 'failed') {
+                // ICE no encontró ruta UDP hasta el Streaming Server: suele ser una VPN o un firewall
+                setError('No se pudo abrir la conexión WebRTC (UDP) con el servidor de streaming. Revisa la VPN, el firewall o el permiso de «Red local» del navegador.')
+                setStatus('')
             }
         }
 
-        async function connect() {
-            try {
-                const ticket = await requestPlaybackTicket(videoId)
-                if (cancelled) {
-                    return
+        startPlayback(peerConnection, videoId)
+            .then(() => {
+                if (!cancelled && peerConnection.connectionState !== 'connected') {
+                    setStatus('Estableciendo canal cifrado DTLS-SRTP...')
                 }
-
-                const offer = await peerConnection.createOffer()
-                await peerConnection.setLocalDescription(offer)
-                await waitForIceGathering(peerConnection)
-
-                if (!peerConnection.localDescription || cancelled) {
-                    return
-                }
-
-                const answerSdp = await negotiateStreamOffer(peerConnection.localDescription.sdp, ticket)
-                await peerConnection.setRemoteDescription({
-                    type: 'answer',
-                    sdp: answerSdp,
-                })
-
-                if (!cancelled) {
-                    setStatus('Reproduciendo')
-                }
-            } catch (connectionError) {
+            })
+            .catch((connectionError: unknown) => {
                 if (!cancelled) {
                     setError(getApiErrorMessage(connectionError))
                     setStatus('')
                 }
-            }
-        }
-
-        void connect()
+            })
 
         return () => {
             cancelled = true
             peerConnection.close()
-            peerConnectionRef.current = null
         }
     }, [videoId])
 
@@ -99,36 +72,10 @@ function VideoPlayer({ videoId, title, onClose }: VideoPlayerProps) {
                         </div>
                     )}
                 </div>
+                {description && <p className="video-player-description">{description}</p>}
             </section>
         </div>
     )
-}
-
-function waitForIceGathering(peerConnection: RTCPeerConnection): Promise<void> {
-    if (peerConnection.iceGatheringState === 'complete') {
-        return Promise.resolve()
-    }
-
-    return new Promise((resolve, reject) => {
-        const timeout = window.setTimeout(() => {
-            cleanup()
-            reject(new Error('La recopilación ICE tardó demasiado.'))
-        }, 10000)
-
-        function cleanup() {
-            window.clearTimeout(timeout)
-            peerConnection.removeEventListener('icegatheringstatechange', handleStateChange)
-        }
-
-        function handleStateChange() {
-            if (peerConnection.iceGatheringState === 'complete') {
-                cleanup()
-                resolve()
-            }
-        }
-
-        peerConnection.addEventListener('icegatheringstatechange', handleStateChange)
-    })
 }
 
 export default VideoPlayer
