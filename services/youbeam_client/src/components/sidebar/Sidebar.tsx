@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './sidebar.css'
 
-type SidebarItem = 'home' | 'videos' | 'private' | 'hidden' | 'settings'
+type SidebarItem = 'home' | 'videos' | 'private' | 'hidden' | 'streaming' | 'settings'
 
 type SidebarProps = {
     activeItem?: SidebarItem
@@ -9,7 +9,7 @@ type SidebarProps = {
     darkMode?: boolean
 }
 
-type IconName = 'home' | 'video' | 'lock' | 'eye' | 'settings' | 'sun' | 'moon'
+type IconName = 'home' | 'video' | 'lock' | 'eye' | 'streaming' | 'settings' | 'sun' | 'moon'
 
 function Icon({ name }: { name: IconName }) {
     if (name === 'home') {
@@ -41,6 +41,15 @@ function Icon({ name }: { name: IconName }) {
             <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M2.5 12s3.2-5 9.5-5 9.5 5 9.5 5-3.2 5-9.5 5-9.5-5-9.5-5Z" />
                 <circle cx="12" cy="12" r="2.5" />
+            </svg>
+        )
+    }
+    if (name === 'streaming') {
+        return (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m10 9 5 3-5 3V9Z" />
+                <path d="M7 2.5h10M7 21.5h10" />
             </svg>
         )
     }
@@ -84,6 +93,10 @@ const mainItems: Array<{ id: SidebarItem; label: string; icon: IconName }> = [
     { id: 'hidden', label: 'Ocultos', icon: 'eye' },
 ]
 
+const streamingItems: Array<{ id: SidebarItem; label: string; icon: IconName }> = [
+    { id: 'streaming', label: 'Streaming', icon: 'streaming' },
+]
+
 function Sidebar({ activeItem = 'home', onNavigate, darkMode = false }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(true)
     const [selectedItem, setSelectedItem] = useState<SidebarItem>(activeItem)
@@ -110,6 +123,25 @@ function Sidebar({ activeItem = 'home', onNavigate, darkMode = false }: SidebarP
                         <span className="menu-label">Tu espacio</span>
                         <nav className="sidebar-nav">
                             {mainItems.map((item) => (
+                                <button
+                                    className={`sidebar-item ${selectedItem === item.id ? 'is-active' : ''}`}
+                                    key={item.id}
+                                    aria-current={selectedItem === item.id ? 'page' : undefined}
+                                    title={collapsed ? item.label : undefined}
+                                    onClick={() => navigate(item.id)}
+                                >
+                                    <div className="icon-wrapper">
+                                        <Icon name={item.icon} />
+                                    </div>
+                                    <span className="item-label">{item.label}</span>
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+                    <div className="menu-section menu-section--streaming">
+                        <span className="menu-label">Transmisión</span>
+                        <nav className="sidebar-nav">
+                            {streamingItems.map((item) => (
                                 <button
                                     className={`sidebar-item ${selectedItem === item.id ? 'is-active' : ''}`}
                                     key={item.id}
