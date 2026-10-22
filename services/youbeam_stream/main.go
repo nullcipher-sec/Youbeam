@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pion/dtls/v3"
 	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
-	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -39,10 +39,13 @@ func main() {
 	}
 	slog.Info("Clave pública de tickets cargada", "path", keyPath)
 
-	// Configurar Pion (DTLS-SRTP)
+	// =========================================================================
+	// CONFIGURACIÓN DE PION (DTLS-SRTP)
+	// =========================================================================
 	s := webrtc.SettingEngine{}
 	mux, _ := ice.NewMultiUDPMuxFromPort(8443)
 	s.SetICEUDPMux(mux)
+
 	// En Docker el contenedor solo conoce su IP interna: PUBLIC_IP es la que debe anunciar en el SDP
 	// para que el navegador pueda llegar al puerto UDP. En local, sin ella, se usan las IPs de la máquina.
 	if publicIP := os.Getenv("PUBLIC_IP"); publicIP != "" {
@@ -53,7 +56,51 @@ func main() {
 	}
 	s.SetAnsweringDTLSRole(webrtc.DTLSRoleServer)
 	s.SetSRTPProtectionProfiles(dtls.SRTP_AEAD_AES_128_GCM)
-	api := webrtc.NewAPI(webrtc.WithSettingEngine(s))
+
+	// =========================================================================
+	// CONFIGURACIÓN DEL MEDIAENGINE (COMPATIBILIDAD MULTI-NAVEGADOR)
+	// =========================================================================
+	m := &webrtc.MediaEngine{}
+
+	// 1. Registrar VP8 (Estándar para Chrome/Edge)
+	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8, ClockRate: 90000},
+		PayloadType:        96,
+	}, webrtc.RTPCodecTypeVideo); err != nil {
+		slog.Error("Error registrando VP8", "err", err)
+		os.Exit(1)
+	}
+
+	// 2. Registrar H.264 (Estándar para Safari/Firefox/iOS)
+	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+		},
+		PayloadType: 102,
+	}, webrtc.RTPCodecTypeVideo); err != nil {
+		slog.Error("Error registrando H.264", "err", err)
+		os.Exit(1)
+	}
+
+	// 3. Registrar Opus (Único códec de audio permitido en WebRTC)
+	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeOpus,
+			ClockRate:   48000,
+			Channels:    2,
+			SDPFmtpLine: "minptime=10;useinbandfec=1",
+		},
+		PayloadType: 111,
+	}, webrtc.RTPCodecTypeAudio); err != nil {
+		slog.Error("Error registrando Opus", "err", err)
+		os.Exit(1)
+	}
+
+	// Crear la API inyectando el Motor de Medios y el SettingEngine
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithSettingEngine(s))
+	// =========================================================================
 
 	// =========================================================================
 	// INTEGRACIÓN INTELIGENTE (Mocks o Reales dependiendo del entorno)
@@ -66,16 +113,22 @@ func main() {
 
 	if dbURL != "" && minioURL != "" {
 		slog.Info("Conectando a Infraestructura Real (Postgres + MinIO)...")
-		
+
 		db, err := sql.Open("postgres", dbURL)
-		if err != nil { slog.Error("Error DB", "err", err); os.Exit(1) }
+		if err != nil {
+			slog.Error("Error DB", "err", err)
+			os.Exit(1)
+		}
 		repo = &PostgresRepository{DB: db}
 
 		minioClient, err := minio.New(minioURL, &minio.Options{
 			Creds:  credentials.NewStaticV4(os.Getenv("MINIO_USER"), os.Getenv("MINIO_PASSWORD"), ""),
 			Secure: false,
 		})
-		if err != nil { slog.Error("Error MinIO", "err", err); os.Exit(1) }
+		if err != nil {
+			slog.Error("Error MinIO", "err", err)
+			os.Exit(1)
+		}
 		storage = &MinioStorage{Client: minioClient}
 	} else {
 		slog.Warn("Variables de entorno no encontradas. Usando MOCKS para pruebas locales.")
@@ -111,7 +164,7 @@ func main() {
 		slog.Info("Servidor escuchando", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Fallo crítico en el servidor HTTP (¿Puerto ocupado?)", "err", err)
-			os.Exit(1) 
+			os.Exit(1)
 		}
 	}()
 
