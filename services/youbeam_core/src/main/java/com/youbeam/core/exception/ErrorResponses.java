@@ -32,6 +32,18 @@ public final class ErrorResponses {
     public static final ErrorResponse VIDEO_NOT_READY = new ErrorResponse(HttpStatus.CONFLICT,
             "Video is not ready for playback");
 
+    public static final ErrorResponse VIDEO_ALREADY_UPLOADED = new ErrorResponse(HttpStatus.CONFLICT,
+            "Video file already uploaded");
+
+    public static final ErrorResponse UNSUPPORTED_VIDEO_TYPE = new ErrorResponse(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+            "Unsupported video format");
+
+    public static final ErrorResponse UPLOAD_IN_PROGRESS = new ErrorResponse(HttpStatus.CONFLICT,
+            "An upload for this video is already in progress");
+
+    public static final ErrorResponse INVALID_VIDEO_FILE = new ErrorResponse(HttpStatus.UNPROCESSABLE_ENTITY,
+            "Video file could not be processed");
+
     public static final ErrorResponse INVALID_TICKET = new ErrorResponse(HttpStatus.UNAUTHORIZED,
             "Invalid or expired playback ticket");
 
