@@ -7,8 +7,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-youbeam}
       POSTGRES_USER: ${POSTGRES_USER:-youbeam}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_local_password}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - youbeam_postgres_data:/var/lib/postgresql/data
       - ./db_init/db.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -18,5 +16,95 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: youbeam-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
+    ports:
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - youbeam_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  core:
+    build:
+      context: ../services/core
+      dockerfile: Dockerfile
+    container_name: youbeam-core
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    secrets:
+      - hpke_public
+      - jwt_private
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-youbeam}
+      DB_USER: ${POSTGRES_USER:-youbeam}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_this_local_password}
+
+  stream:
+    build:
+      context: ../services/stream
+      dockerfile: Dockerfile
+    container_name: youbeam-stream
+    restart: unless-stopped
+    ports:
+      - "8443:8443/udp"
+    depends_on:
+      database:
+        condition: service_healthy
+    secrets:
+      - hpke_private
+      - jwt_public
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+
+  client:
+    build:
+      context: ../services/client
+      dockerfile: Dockerfile
+    container_name: youbeam-client
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: youbeam-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./secrets/tls.crt:/etc/nginx/certs/tls.crt:ro
+      - ./secrets/tls.key:/etc/nginx/certs/tls.key:ro
+    depends_on:
+      - client
+      - core
+
 volumes:
   youbeam_postgres_data:
+  youbeam_minio_data:
+
+secrets:
+  hpke_public:
+    file: ./secrets/hpke_public.pem
+  hpke_private:
+    file: ./secrets/hpke_private.pem
+  jwt_public:
+    file: ./secrets/jwt_public.pem
+  jwt_private:
+    file: ./secrets/jwt_private.pem
