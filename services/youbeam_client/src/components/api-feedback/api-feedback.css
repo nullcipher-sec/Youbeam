@@ -1,0 +1,40 @@
+.api-feedback {
+  display: grid;
+  gap: 6px;
+  max-width: 620px;
+  margin: 24px auto;
+  padding: 18px 20px;
+  border: 1px solid #f2cdd2;
+  border-radius: 14px;
+  color: #7e2530;
+  background: #fff5f6;
+  font-size: 13px;
+}
+
+.api-feedback span {
+  color: #9d626a;
+}
+
+.api-feedback button {
+  justify-self: start;
+  margin-top: 6px;
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #c51627;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.is-dark .api-feedback {
+  border-color: #5c2b36;
+  color: #ffc2c8;
+  background: #2b1b27;
+}
+
+.is-dark .api-feedback span {
+  color: #d69aa4;
+}

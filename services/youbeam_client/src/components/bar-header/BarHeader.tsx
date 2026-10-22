@@ -4,6 +4,8 @@ import './bar-header.css'
 type BarHeaderProps = {
     onSearch?: (value: string) => void
     onUpload?: () => void
+    isAuthenticated?: boolean
+    onLogin?: () => void
 }
 
 function SearchIcon() {
@@ -25,7 +27,7 @@ function UploadIcon() {
     )
 }
 
-function BarHeader({ onSearch, onUpload }: BarHeaderProps) {
+function BarHeader({ onSearch, onUpload, isAuthenticated = false, onLogin }: BarHeaderProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
 
@@ -60,12 +62,14 @@ function BarHeader({ onSearch, onUpload }: BarHeaderProps) {
             </label>
 
             <div className="bar-header-actions">
-                <button className="bar-header-upload" type="button" onClick={onUpload}>
-                    <UploadIcon />
-                    <span>Subir</span>
-                </button>
+                {isAuthenticated ? (
+                    <>
+                        <button className="bar-header-upload" type="button" onClick={onUpload}>
+                            <UploadIcon />
+                            <span>Subir</span>
+                        </button>
 
-                <div className="user-menu-container" ref={menuRef}>
+                        <div className="user-menu-container" ref={menuRef}>
                     <button
                         className="avatar-button"
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -78,15 +82,21 @@ function BarHeader({ onSearch, onUpload }: BarHeaderProps) {
                         />
                     </button>
 
-                    {isMenuOpen && (
-                        <div className="user-dropdown">
-                            <button className="user-dropdown-item">Perfil</button>
-                            <button className="user-dropdown-item">Estudio</button>
-                            <div className="user-dropdown-divider"></div>
-                            <button className="user-dropdown-item is-danger">Cerrar sesión</button>
+                            {isMenuOpen && (
+                                <div className="user-dropdown">
+                                    <button className="user-dropdown-item">Perfil</button>
+                                    <button className="user-dropdown-item">Estudio</button>
+                                    <div className="user-dropdown-divider"></div>
+                                    <button className="user-dropdown-item is-danger">Cerrar sesión</button>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </>
+                ) : (
+                    <button className="bar-header-login" type="button" onClick={onLogin}>
+                        Iniciar sesión
+                    </button>
+                )}
             </div>
         </header>
     )

@@ -19,6 +19,43 @@
   background: #f8fafc url('../assets/background_auth.jpeg') center / cover;
 }
 
+.auth-back-button {
+  position: absolute;
+  top: clamp(18px, 4vw, 42px);
+  left: clamp(18px, 4vw, 42px);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.68);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  backdrop-filter: blur(8px);
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.auth-back-button span {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.auth-back-button:hover {
+  color: #c51627;
+  background: #fff;
+  transform: translateX(-2px);
+}
+
+.auth-back-button:focus-visible {
+  outline: 3px solid rgba(197, 22, 39, 0.22);
+  outline-offset: 3px;
+}
+
 .authentication-page::before,
 .authentication-page::after {
   content: '';

@@ -72,6 +72,10 @@ function Authentication() {
 
   return (
       <main className="authentication-page">
+        <button className="auth-back-button" type="button" onClick={() => window.location.assign('/')}>
+          <span aria-hidden="true">←</span>
+          Volver al inicio
+        </button>
         <section className={`auth-card ${isLogin ? 'is-login' : 'is-signup'}`}>
           <div className="auth-panel">
             <div className="auth-panel-content" key={`panel-${mode}`}>

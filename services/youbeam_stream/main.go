@@ -2,12 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
 	"database/sql"
-	"encoding/pem"
 	"log/slog"
 	"net/http"
 	"os"
@@ -28,19 +23,26 @@ func main() {
 	slog.SetDefault(logger)
 	slog.Info("Iniciando YouBeam Streaming Server...")
 
-	// Si no estamos en Docker, generamos la llave local para pruebas
-	if _, err := os.Stat("/run/secrets/jwt_public.pem"); os.IsNotExist(err) {
-		slog.Warn("No se encontró llave en secrets, generando una local para pruebas...")
-		privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		pubBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
-		pubPem := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
-		os.WriteFile("jwt_public.pem", pubPem, 0644)
+	// Clave pública de tickets: la misma que firma el Core (deploy/secrets o Docker secret)
+	ticketKey, keyPath, err := LoadTicketPublicKey()
+	if err != nil {
+		slog.Error("No se pudo cargar la clave pública de tickets", "err", err)
+		os.Exit(1)
 	}
+	slog.Info("Clave pública de tickets cargada", "path", keyPath)
 
 	// Configurar Pion (DTLS-SRTP)
 	s := webrtc.SettingEngine{}
 	mux, _ := ice.NewMultiUDPMuxFromPort(8443)
 	s.SetICEUDPMux(mux)
+	// En Docker el contenedor solo conoce su IP interna: PUBLIC_IP es la que debe anunciar en el SDP
+	// para que el navegador pueda llegar al puerto UDP. En local, sin ella, se usan las IPs de la máquina.
+	if publicIP := os.Getenv("PUBLIC_IP"); publicIP != "" {
+		s.SetNAT1To1IPs([]string{publicIP}, webrtc.ICECandidateTypeHost)
+		slog.Info("Anunciando IP pública en los candidatos ICE", "ip", publicIP)
+	} else {
+		slog.Warn("PUBLIC_IP no definida: se anuncian las IPs locales (válido solo fuera de Docker)")
+	}
 	s.SetAnsweringDTLSRole(webrtc.DTLSRoleServer)
 	s.SetSRTPProtectionProfiles(dtls.SRTP_AEAD_AES_128_GCM)
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(s))
@@ -82,23 +84,23 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// Servir el HTML de prueba local (opcional)
-	muxHttp.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "index.html")
-	})
-
 	// Endpoint de señalización
 	muxHttp.HandleFunc("/offer", func(w http.ResponseWriter, r *http.Request) {
-		HandleOffer(w, r, api, repo, storage)
+		HandleOffer(w, r, api, repo, storage, ticketKey)
 	})
 
+	// Puerto configurable: por defecto 8081, porque el Core ocupa el 8080
+	addr := os.Getenv("STREAM_HTTP_ADDR")
+	if addr == "" {
+		addr = ":8081"
+	}
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    addr,
 		Handler: muxHttp,
 	}
 
 	go func() {
-		slog.Info("Servidor escuchando en http://0.0.0.0:8080")
+		slog.Info("Servidor escuchando", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Fallo crítico en el servidor HTTP (¿Puerto ocupado?)", "err", err)
 			os.Exit(1) 
