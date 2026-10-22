@@ -123,3 +123,20 @@ CREATE TABLE video_views (
 
 CREATE INDEX idx_views_video ON video_views(video_id);
 CREATE INDEX idx_views_date  ON video_views(viewed_at);
+-- Clave de cada video (DEK), envuelta con la clave pública HPKE del Streaming Server.
+-- El Core solo puede envolverla; desenvolverla requiere hpke_private, que solo tiene el Streaming Server.
+CREATE TABLE video_keys (
+                            video_id    UUID PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE,
+                            key_id      VARCHAR(64)  NOT NULL, -- id de la clave pública usada (rotación)
+                            algorithm   VARCHAR(100) NOT NULL DEFAULT 'HPKE-X25519-SHA256-AES256GCM+STREAM-AES256GCM-HKDF-1MB',
+                            wrapped_dek BYTEA        NOT NULL,
+                            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Anti-replay de tickets de reproducción: el Streaming Server inserta cada jti usado
+CREATE TABLE used_play_tickets (
+                                   jti        UUID PRIMARY KEY,
+                                   expires_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX idx_used_tickets_expires ON used_play_tickets(expires_at);

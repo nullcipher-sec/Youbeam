@@ -7,13 +7,17 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,8 +48,23 @@ class ExceptionControllerAdviceTests {
                 .andExpect(content().string(not(containsString("secret-detail"))));
     }
 
+    @Test
+    void frameworkClientErrorsKeepTheirStatus() throws Exception {
+        mockMvc.perform(post("/test/forbidden"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.message").value("Method Not Allowed"));
+        mockMvc.perform(post("/test/echo").contentType(MediaType.TEXT_PLAIN).content("x"))
+                .andExpect(status().isUnsupportedMediaType());
+    }
+
     @RestController
     static class FailingController {
+
+        @PostMapping(value = "/test/echo", consumes = MediaType.APPLICATION_JSON_VALUE)
+        String echo(@RequestBody String body) {
+            return body;
+        }
+
 
         @GetMapping("/test/forbidden")
         String forbidden() throws ControllerException {
