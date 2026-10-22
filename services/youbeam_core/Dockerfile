@@ -16,8 +16,9 @@ RUN java -Djarmode=tools -jar target/youbeam-core-*.jar extract --layers --launc
 # Etapa de ejecución: solo JRE
 FROM eclipse-temurin:21-jre-alpine
 
-# curl para el HEALTHCHECK y últimos parches de seguridad
-RUN apk upgrade --no-cache && apk add --no-cache curl
+# curl para el HEALTHCHECK, ffmpeg (con libvpx y libopus) para transcodificar las subidas
+# y últimos parches de seguridad
+RUN apk upgrade --no-cache && apk add --no-cache curl ffmpeg
 
 # Usuario sin privilegios de root por seguridad
 RUN addgroup -S appuser \
