@@ -80,3 +80,41 @@
         padding: 12px;
     }
 }
+
+.video-player-description {
+    margin: 0;
+    padding: 14px 18px 18px;
+    color: #718099;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+
+/* Página /watch/{id}: fondo para los estados de carga y error */
+.watch-page {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 16px;
+    min-height: 100svh;
+    padding: 24px;
+    box-sizing: border-box;
+    background: #f5f7fb;
+    font-family: inherit;
+}
+
+.watch-page .primary-action {
+    padding: 10px 15px;
+    border: 0;
+    border-radius: 9px;
+    color: #fff;
+    background: #c51627;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.watch-page .panel-status {
+    color: #718099;
+}

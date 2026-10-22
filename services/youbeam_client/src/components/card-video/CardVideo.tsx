@@ -5,11 +5,11 @@ type CardVideoVariant = 'grid' | 'list'
 type CardVideoProps = {
     videoId: string
     title: string
-    creator: string
-    views: string
+    creator?: string
+    views?: string
     publishedAt: string
     duration: string
-    thumbnail: string
+    thumbnail?: string
     avatar?: string
     badge?: string
     description?: string
@@ -60,7 +60,14 @@ function CardVideo({
             }
         }}>
             <div className="video-card-media">
-                <img src={thumbnail} alt="" />
+                {thumbnail ? (
+                    <img src={thumbnail} alt="" />
+                ) : (
+                    // El Core aún no genera miniaturas: se muestra un marcador con la inicial del título
+                    <span className="video-card-thumbnail-placeholder" aria-hidden="true">
+                        {title.charAt(0).toUpperCase()}
+                    </span>
+                )}
                 {badge && <span className="video-card-badge">{badge}</span>}
                 <span className="video-card-duration">{duration}</span>
             </div>
@@ -75,7 +82,7 @@ function CardVideo({
                     )}
                 </div>
 
-                <div className="video-card-creator">
+                {creator && <div className="video-card-creator">
                     {avatar ? (
                         <img src={avatar} alt="" />
                     ) : (
@@ -89,10 +96,10 @@ function CardVideo({
                             <VerifiedIcon />
                         </span>
                     )}
-                </div>
+                </div>}
 
                 <p className="video-card-meta">
-                    {views} vistas <span aria-hidden="true">•</span> hace {publishedAt}
+                    {views && <>{views} vistas <span aria-hidden="true">•</span> </>}{publishedAt}
                 </p>
 
                 {description && <p className="video-card-description">{description}</p>}
