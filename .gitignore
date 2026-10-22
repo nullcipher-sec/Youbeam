@@ -41,7 +41,7 @@ services/youbeam_stream/bin/
 
 # ── Herramientas locales ──
 # Claude Code (local, por usuario)
-.claude/settings.local.json
+.claude/
 # Grafo de conocimiento generado
 graphify-out/
 # Notas personales de estudio
