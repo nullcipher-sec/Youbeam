@@ -1,0 +1,126 @@
+.page-enumeration {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    flex: 0 0 66px;
+    min-height: 66px;
+    margin-top: 12px;
+    margin-bottom: 28px;
+    padding: 0 14px;
+    border: 1px solid #edf0f6;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 5px 16px rgba(36, 59, 99, 0.035);
+}
+
+.page-enumeration-controls,
+.page-enumeration-pages {
+    display: flex;
+    align-items: center;
+}
+
+.page-enumeration-controls {
+    gap: 8px;
+}
+
+.page-enumeration-pages {
+    gap: 2px;
+}
+
+.page-enumeration-navigation,
+.page-enumeration-page {
+    height: 36px;
+    border: 0;
+    border-radius: 11px;
+    color: #34435e;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+}
+
+.page-enumeration-navigation {
+    padding: 0 14px;
+}
+
+.page-enumeration-page {
+    width: 36px;
+}
+
+.page-enumeration-navigation:hover:not(:disabled),
+.page-enumeration-page:hover:not(.is-active),
+.page-enumeration-navigation:focus-visible,
+.page-enumeration-page:focus-visible {
+    background: #f6f8fc;
+}
+
+.page-enumeration-navigation:disabled {
+    color: #aeb7c7;
+    background: #f7f9fc;
+    cursor: not-allowed;
+}
+
+.page-enumeration-page.is-active {
+    color: #fff;
+    background: #c51627;
+    box-shadow: 0 5px 12px rgba(197, 22, 39, 0.15);
+}
+
+.page-enumeration-ellipsis {
+    display: grid;
+    width: 30px;
+    height: 36px;
+    place-items: center;
+    color: #5b6880;
+    font-size: 14px;
+}
+
+.page-enumeration-navigation:focus-visible,
+.page-enumeration-page:focus-visible {
+    outline: 3px solid rgba(197, 22, 39, 0.18);
+    outline-offset: 2px;
+}
+
+.is-dark .page-enumeration {
+    border-color: #252e43;
+    background: #171d2d;
+}
+
+.is-dark .page-enumeration-navigation,
+.is-dark .page-enumeration-page {
+    color: #edf2ff;
+}
+
+.is-dark .page-enumeration-navigation:disabled {
+    color: #64718a;
+    background: #20283b;
+}
+
+.is-dark .page-enumeration-navigation:hover:not(:disabled),
+.is-dark .page-enumeration-page:hover:not(.is-active),
+.is-dark .page-enumeration-navigation:focus-visible,
+.is-dark .page-enumeration-page:focus-visible {
+    background: #20283b;
+}
+
+.is-dark .page-enumeration-ellipsis {
+    color: #aebbd1;
+}
+
+@media (max-width: 760px) {
+    .page-enumeration {
+        padding: 14px;
+    }
+}
+
+@media (max-width: 460px) {
+    .page-enumeration-navigation {
+        padding: 0 10px;
+        font-size: 12px;
+    }
+
+    .page-enumeration-page {
+        width: 30px;
+    }
+}

@@ -85,6 +85,31 @@
     outline-offset: 3px;
 }
 
+.bar-header-login {
+    height: 40px;
+    padding: 0 17px;
+    border: 1px solid #c51627;
+    border-radius: 999px;
+    color: #c51627;
+    background: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.bar-header-login:hover {
+    color: #fff;
+    background: #c51627;
+    transform: translateY(-1px);
+}
+
+.bar-header-login:focus-visible {
+    outline: 3px solid rgba(197, 22, 39, 0.25);
+    outline-offset: 3px;
+}
+
 .bar-header-upload svg {
     width: 18px;
     height: 18px;
@@ -95,7 +120,6 @@
     stroke-width: 2;
 }
 
-/* Nuevos estilos para el menú del usuario */
 .user-menu-container {
     position: relative;
 }
@@ -128,7 +152,6 @@
     box-shadow: 0 2px 8px rgba(23, 35, 63, 0.18);
 }
 
-/* Dropdown */
 .user-dropdown {
     position: absolute;
     top: calc(100% + 12px);
