@@ -1,0 +1,7 @@
+# Solo desarrollo: `docker compose up` carga este archivo automáticamente.
+# En producción usar:  docker compose -f docker-compose.yml up -d --build
+services:
+  database:
+    ports:
+      # Para `psql -h localhost -p $POSTGRES_PORT ...` y para correr el Core desde el IDE. Solo localhost.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
