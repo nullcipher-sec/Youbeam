@@ -32,9 +32,9 @@ WORKDIR /app
 COPY --from=builder /youbeam-stream /usr/local/bin/youbeam-stream
 
 # Exponer los puertos:
-# 8080/TCP para el endpoint HTTP /offer (señalización interna)
+# 8081/TCP para el endpoint HTTP /offer (señalización interna)
 # 8443/UDP para la transmisión de video/audio WebRTC
-EXPOSE 8080/tcp
+EXPOSE 8081/tcp
 EXPOSE 8443/udp
 
 # Comando de ejecución

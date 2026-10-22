@@ -89,10 +89,10 @@ func main() {
 		HandleOffer(w, r, api, repo, storage, ticketKey)
 	})
 
-	// Puerto configurable: en local el Core ya ocupa el 8080
+	// Puerto configurable: por defecto 8081, porque el Core ocupa el 8080
 	addr := os.Getenv("STREAM_HTTP_ADDR")
 	if addr == "" {
-		addr = ":8080"
+		addr = ":8081"
 	}
 	srv := &http.Server{
 		Addr:    addr,
