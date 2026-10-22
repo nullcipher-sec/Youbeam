@@ -5,7 +5,9 @@ type BarHeaderProps = {
     onSearch?: (value: string) => void
     onUpload?: () => void
     isAuthenticated?: boolean
+    userName?: string
     onLogin?: () => void
+    onLogout?: () => void
 }
 
 function SearchIcon() {
@@ -27,7 +29,7 @@ function UploadIcon() {
     )
 }
 
-function BarHeader({ onSearch, onUpload, isAuthenticated = false, onLogin }: BarHeaderProps) {
+function BarHeader({ onSearch, onUpload, isAuthenticated = false, userName = '', onLogin, onLogout }: BarHeaderProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
 
@@ -75,19 +77,20 @@ function BarHeader({ onSearch, onUpload, isAuthenticated = false, onLogin }: Bar
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                         aria-expanded={isMenuOpen}
                     >
-                        <img
-                            className="bar-header-avatar"
-                            src="https://i.pravatar.cc/100?u=youbeam-demo"
-                            alt="Perfil de usuario"
-                        />
+                        {/* Inicial del usuario en lugar de un avatar externo: así no se filtra la visita a terceros */}
+                        <span className="bar-header-avatar bar-header-initial" aria-label={`Perfil de ${userName}`}>
+                            {userName.charAt(0).toUpperCase() || '?'}
+                        </span>
                     </button>
 
                             {isMenuOpen && (
                                 <div className="user-dropdown">
-                                    <button className="user-dropdown-item">Perfil</button>
-                                    <button className="user-dropdown-item">Estudio</button>
+                                    <span className="user-dropdown-item user-dropdown-name">{userName}</span>
                                     <div className="user-dropdown-divider"></div>
-                                    <button className="user-dropdown-item is-danger">Cerrar sesión</button>
+                                    <button className="user-dropdown-item is-danger" type="button" onClick={() => {
+                                        setIsMenuOpen(false)
+                                        onLogout?.()
+                                    }}>Cerrar sesión</button>
                                 </div>
                             )}
                         </div>
