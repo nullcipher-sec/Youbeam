@@ -23,6 +23,14 @@ func main() {
 	slog.SetDefault(logger)
 	slog.Info("Iniciando YouBeam Streaming Server...")
 
+	// En desarrollo se leen las mismas variables que el Core (deploy/.env); en Docker no hay archivo
+	if path, err := LoadDevEnv(); err != nil {
+		slog.Error("No se pudo leer el .env de desarrollo", "path", path, "err", err)
+		os.Exit(1)
+	} else if path != "" {
+		slog.Info("Variables de desarrollo cargadas", "path", path)
+	}
+
 	// Clave pública de tickets: la misma que firma el Core (deploy/secrets o Docker secret)
 	ticketKey, keyPath, err := LoadTicketPublicKey()
 	if err != nil {
