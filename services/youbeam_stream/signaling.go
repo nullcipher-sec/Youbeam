@@ -99,7 +99,12 @@ func HandleOffer(w http.ResponseWriter, r *http.Request, api *webrtc.API, repo V
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if state == webrtc.PeerConnectionStateConnected {
-			slog.Info("Navegador conectado", "video_id", videoID)
+			slog.Info("Navegador conectado. Preparando buffer del reproductor...", "video_id", videoID)
+
+			// TRUCO 1: Esperar 1.5 segundos para que el navegador esté listo
+			time.Sleep(1500 * time.Millisecond)
+
+			slog.Info("Iniciando envío de medios...", "video_id", videoID)
 			go StreamMedia(ctx, repo, storage, videoID, videoTrack, audioTrack)
 		}
 
