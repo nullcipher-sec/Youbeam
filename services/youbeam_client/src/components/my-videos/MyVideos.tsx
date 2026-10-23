@@ -8,15 +8,14 @@ import './my-videos.css'
 type MyVideosProps = {
   onUpload: () => void
   onPlay: (video: Video) => void
-  // Sin filtro se muestran todos; con filtro, las secciones "Privados" y "Ocultos" de la barra lateral
   visibilityFilter?: VideoVisibility
 }
 
 const headings: Record<VideoVisibility | 'all', { title: string; description: string }> = {
-  all: { title: 'Mis videos', description: 'Administra títulos, descripciones y visibilidad de tus publicaciones.' },
-  private: { title: 'Videos privados', description: 'Solo tú puedes verlos y reproducirlos.' },
-  hidden: { title: 'Videos ocultos', description: 'No aparecen en el catálogo; los ve quien tenga el enlace.' },
-  public: { title: 'Videos públicos', description: 'Aparecen en el catálogo para cualquier persona.' },
+  all: { title: 'Tus videos', description: 'Administra tu contenido, ajusta detalles y controla quién puede verlo.' },
+  private: { title: 'Privados', description: 'Contenido exclusivo. Solo tú puedes reproducirlo.' },
+  hidden: { title: 'Ocultos', description: 'Fuera del catálogo. Solo accesibles mediante enlace directo.' },
+  public: { title: 'Públicos', description: 'Visibles para cualquier persona en el catálogo principal.' },
 }
 
 function MyVideos({ onUpload, onPlay, visibilityFilter }: MyVideosProps) {
@@ -70,7 +69,7 @@ function MyVideos({ onUpload, onPlay, visibilityFilter }: MyVideosProps) {
   }
 
   async function removeVideo(id: string) {
-    if (!window.confirm('¿Quieres borrar este video? Esta acción no se puede deshacer.')) return
+    if (!window.confirm('¿Eliminar este video de forma permanente?')) return
     try {
       await deleteVideo(id)
       setVideos((current) => current.filter((video) => video.id !== id))
@@ -79,7 +78,6 @@ function MyVideos({ onUpload, onPlay, visibilityFilter }: MyVideosProps) {
     }
   }
 
-  // Para videos sin archivo o cuya subida falló: el Core admite un nuevo intento mientras no estén listos
   async function retryUpload(id: string, file: File | undefined) {
     if (!file) return
     setError(null)
@@ -94,105 +92,147 @@ function MyVideos({ onUpload, onPlay, visibilityFilter }: MyVideosProps) {
     }
   }
 
-  // Los videos ocultos solo se comparten con este enlace: el UUID no se puede adivinar
   async function copyLink(id: string) {
     await navigator.clipboard.writeText(`${window.location.origin}/watch/${id}`)
     setCopiedId(id)
-    window.setTimeout(() => setCopiedId(null), 1500)
+    window.setTimeout(() => setCopiedId(null), 2000)
   }
 
   const visibleVideos = visibilityFilter ? videos.filter((video) => video.visibility === visibilityFilter) : videos
   const heading = headings[visibilityFilter ?? 'all']
 
   return (
-    <section className="my-videos">
-      <div className="section-heading">
-        <div>
-          <span className="section-kicker">Tu biblioteca</span>
-          <h1>{heading.title}</h1>
-          <p>{heading.description}</p>
+      <section className="mv-container">
+        <div className="mv-header-card">
+          <div className="mv-header-content">
+            <h1>{heading.title}</h1>
+            <p>{heading.description}</p>
+          </div>
+          <button className="mv-btn-primary" type="button" onClick={onUpload}>
+            <span aria-hidden="true">+</span> Subir video
+          </button>
         </div>
-        <button className="primary-action" type="button" onClick={onUpload}>Subir video</button>
-      </div>
-      {error !== null && <ApiFeedback error={error} onRetry={() => void loadVideos()} />}
-      {loading ? (
-        <p className="panel-status">Cargando tus videos...</p>
-      ) : visibleVideos.length === 0 ? (
-        <p className="panel-status">Aun no hay elementos disponibles</p>
-      ) : (
-        <div className="my-video-table">
-          {visibleVideos.map((video) => {
-            const editing = editingId === video.id
-            const uploadingThis = uploading?.id === video.id
-            return (
-              <article className="my-video-row" key={video.id}>
-                <div className="my-video-thumbnail" aria-hidden="true">
-                  {video.title.charAt(0).toUpperCase()}
-                  <span>{formatDuration(video.durationSeconds)}</span>
-                </div>
-                <div className="my-video-info">
-                  {editing ? (
-                    <>
-                      <input value={video.title} aria-label="Título" maxLength={200} onChange={(event) => edit(video.id, { title: event.target.value })} />
-                      <textarea value={video.description ?? ''} aria-label="Descripción" maxLength={5000} onChange={(event) => edit(video.id, { description: event.target.value })} />
-                    </>
-                  ) : (
-                    <>
-                      <h2>{video.title}</h2>
-                      <p>{video.description || 'Sin descripción'}</p>
-                    </>
-                  )}
-                  <span className={`status-chip status-chip--${video.status}`}>
-                    {uploadingThis
-                      ? uploading.progress < 100 ? `Subiendo ${uploading.progress}%` : 'Transcodificando y cifrando...'
-                      : statusLabels[video.status]}
-                  </span>
-                  {video.status === 'ready' && video.visibility !== 'private' && (
-                    <button className="my-video-link" type="button" onClick={() => void copyLink(video.id)}>
-                      {copiedId === video.id ? 'Enlace copiado' : 'Copiar enlace'}
-                    </button>
-                  )}
-                </div>
-                <label className="visibility-field">
-                  <span>Visibilidad</span>
-                  <select disabled={!editing} value={video.visibility} onChange={(event) => edit(video.id, { visibility: event.target.value as VideoVisibility })}>
-                    {(Object.keys(visibilityLabels) as VideoVisibility[]).map((value) => (
-                      <option key={value} value={value}>{visibilityLabels[value]}</option>
-                    ))}
-                  </select>
-                </label>
-                <div className="my-video-actions">
-                  {video.status === 'ready' ? (
-                    <button type="button" onClick={() => onPlay(video)}>Reproducir</button>
-                  ) : (
-                    <label className={`my-video-upload ${uploadingThis ? 'is-busy' : ''}`}>
-                      {video.status === 'error' ? 'Reintentar subida' : 'Subir archivo'}
-                      <input
-                        type="file"
-                        accept="video/mp4,video/webm,video/quicktime,video/x-matroska"
-                        disabled={uploading !== null}
-                        onChange={(event) => {
-                          void retryUpload(video.id, event.target.files?.[0])
-                          event.target.value = ''
-                        }}
-                      />
-                    </label>
-                  )}
-                  {editing ? (
-                    <button type="button" disabled={savingId === video.id} onClick={() => void saveVideo(video)}>
-                      {savingId === video.id ? 'Guardando...' : 'Guardar'}
-                    </button>
-                  ) : (
-                    <button type="button" onClick={() => setEditingId(video.id)}>Editar</button>
-                  )}
-                  <button className="danger-action" type="button" onClick={() => void removeVideo(video.id)}>Borrar</button>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      )}
-    </section>
+
+        {error !== null && <ApiFeedback error={error} onRetry={() => void loadVideos()} />}
+
+        {loading ? (
+            <div className="mv-empty-state">
+              <div className="mv-spinner"></div>
+              <p>Cargando tu biblioteca...</p>
+            </div>
+        ) : visibleVideos.length === 0 ? (
+            <div className="mv-empty-state">
+              <div className="mv-empty-icon">📁</div>
+              <p>No hay videos en esta sección.</p>
+            </div>
+        ) : (
+            <div className="mv-card-list">
+              {visibleVideos.map((video) => {
+                const isEditing = editingId === video.id
+                const isUploading = uploading?.id === video.id
+                const uploadProgress = uploading?.progress ?? 0
+
+                return (
+                    <article className={`mv-card ${isEditing ? 'is-editing' : ''}`} key={video.id}>
+                      <div
+                          className="mv-card-media"
+                          onClick={() => !isEditing && video.status === 'ready' && onPlay(video)}
+                          role={video.status === 'ready' && !isEditing ? "button" : undefined}
+                      >
+                        <div className="mv-thumb-gradient" aria-hidden="true">
+                          {video.title.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="mv-media-badges">
+                          <span className="mv-badge-duration">{formatDuration(video.durationSeconds)}</span>
+                        </div>
+                        {video.status === 'ready' && !isEditing && (
+                            <div className="mv-play-btn-overlay">
+                              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                        )}
+                      </div>
+
+                      <div className="mv-card-body">
+                        {isEditing ? (
+                            <div className="mv-edit-form">
+                              <div className="mv-input-group">
+                                <label>Título</label>
+                                <input className="mv-input" value={video.title} onChange={(e) => edit(video.id, { title: e.target.value })} autoFocus />
+                              </div>
+                              <div className="mv-input-group">
+                                <label>Descripción</label>
+                                <textarea className="mv-textarea" value={video.description ?? ''} onChange={(e) => edit(video.id, { description: e.target.value })} />
+                              </div>
+                              <div className="mv-input-group">
+                                <label>Visibilidad</label>
+                                <select className="mv-select" value={video.visibility} onChange={(e) => edit(video.id, { visibility: e.target.value as VideoVisibility })}>
+                                  {(Object.keys(visibilityLabels) as VideoVisibility[]).map((v) => (
+                                      <option key={v} value={v}>{visibilityLabels[v]}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="mv-edit-actions">
+                                <button className="mv-btn-solid" disabled={savingId === video.id} onClick={() => void saveVideo(video)}>
+                                  {savingId === video.id ? 'Guardando...' : 'Guardar cambios'}
+                                </button>
+                                <button className="mv-btn-outline" onClick={() => setEditingId(null)}>Cancelar</button>
+                              </div>
+                            </div>
+                        ) : (
+                            <>
+                              <div className="mv-card-info">
+                                <div className="mv-card-title-row">
+                                  <h2 className="mv-title">{video.title}</h2>
+                                  <div className="mv-status-badges">
+                            <span className={`mv-badge mv-badge-${video.visibility}`}>
+                              {visibilityLabels[video.visibility]}
+                            </span>
+                                    <span className={`mv-badge mv-badge-status-${video.status}`}>
+                              {isUploading ? `${uploadProgress}%` : statusLabels[video.status]}
+                            </span>
+                                  </div>
+                                </div>
+                                <p className="mv-desc">{video.description || 'Sin descripción añadida.'}</p>
+                              </div>
+
+                              <div className="mv-card-footer">
+                                <div className="mv-actions-left">
+                                  {video.status === 'ready' && video.visibility !== 'private' && (
+                                      <button className="mv-btn-tonal" onClick={() => void copyLink(video.id)}>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                        {copiedId === video.id ? 'Copiado' : 'Copiar enlace'}
+                                      </button>
+                                  )}
+
+                                  {video.status !== 'ready' && (
+                                      <label className={`mv-btn-tonal mv-upload-btn ${isUploading ? 'is-disabled' : ''}`}>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                        {video.status === 'error' ? 'Reintentar' : 'Subir archivo'}
+                                        <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" disabled={isUploading} onChange={(e) => {
+                                          void retryUpload(video.id, e.target.files?.[0]); e.target.value = ''
+                                        }}/>
+                                      </label>
+                                  )}
+                                </div>
+
+                                <div className="mv-actions-right">
+                                  <button className="mv-btn-icon" onClick={() => setEditingId(video.id)} aria-label="Editar">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  </button>
+                                  <button className="mv-btn-icon is-danger" onClick={() => void removeVideo(video.id)} aria-label="Borrar">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                        )}
+                      </div>
+                    </article>
+                )
+              })}
+            </div>
+        )}
+      </section>
   )
 }
 

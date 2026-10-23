@@ -1,10 +1,9 @@
 .video-card {
     min-width: 0;
-    overflow: hidden;
-    border: 1px solid #edf0f6;
-    border-radius: 13px;
-    background: #fff;
-    box-shadow: 0 5px 16px rgba(36, 59, 99, 0.035);
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
 }
 
 .video-card[tabindex='0'] {
@@ -12,14 +11,24 @@
 }
 
 .video-card[tabindex='0']:focus-visible {
-    outline: 3px solid rgba(197, 22, 39, 0.22);
-    outline-offset: 3px;
+    outline: none;
+}
+
+.video-card[tabindex='0']:focus-visible .video-card-media {
+    outline: 3px solid rgba(197, 22, 39, 0.4);
+    outline-offset: 2px;
 }
 
 .video-card-media {
     position: relative;
     overflow: hidden;
-    background: #e9eef6;
+    background: #1a2233;
+    border-radius: 12px;
+    transition: border-radius 0.2s ease;
+}
+
+.video-card:hover .video-card-media img {
+    transform: scale(1.03);
 }
 
 .video-card-media img {
@@ -27,6 +36,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.3s ease;
 }
 
 .video-card-thumbnail-placeholder {
@@ -35,53 +45,53 @@
     width: 100%;
     height: 100%;
     min-height: 100%;
-    color: rgba(255, 255, 255, .92);
-    background: linear-gradient(135deg, #17233f, #5275b5 60%, #c51627);
+    color: rgba(255, 255, 255, .9);
+    background: linear-gradient(135deg, #2a3449, #111827);
     font-size: 38px;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .video-card--grid .video-card-media {
     aspect-ratio: 16 / 9;
-    margin: 6px 6px 0;
-    width: calc(100% - 12px);
-    border-radius: 9px;
+    width: 100%;
 }
 
 .video-card-badge,
 .video-card-duration {
     position: absolute;
-    bottom: 6px;
-    padding: 2px 5px;
-    border-radius: 4px;
+    bottom: 8px;
+    padding: 3px 6px;
+    border-radius: 6px;
     color: #fff;
-    background: rgba(10, 18, 32, 0.84);
-    font-size: 10px;
-    font-weight: 700;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
 }
 
 .video-card-badge {
-    top: 6px;
+    top: 8px;
     right: auto;
     bottom: auto;
-    left: 6px;
-    color: #243450;
-    background: rgba(255, 255, 255, 0.9);
+    left: 8px;
+    color: #17233f;
+    background: rgba(255, 255, 255, 0.95);
 }
 
 .video-card-duration {
-    right: 6px;
+    right: 8px;
 }
 
 .video-card-content {
     min-width: 0;
-    padding: 9px 11px 12px;
+    padding: 12px 0 0;
 }
 
 .video-card-heading {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 12px;
 }
 
 .video-card h2 {
@@ -90,39 +100,51 @@
     margin: 0;
     overflow: hidden;
     color: #17233f;
-    font-size: 15px;
-    font-weight: 700;
-    line-height: 1.28;
-    letter-spacing: -0.01em;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.35;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+}
+
+.video-card-meta-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
 }
 
 .video-card-creator {
     display: flex;
     align-items: center;
-    gap: 5px;
-    margin-top: 7px;
+    gap: 6px;
     color: #5b6880;
-    overflow: hidden;
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 .video-card-creator img,
 .video-card-avatar-placeholder {
-    display: grid;
-    width: 23px;
-    height: 23px;
+    width: 20px;
+    height: 20px;
     flex: 0 0 auto;
-    place-items: center;
     border-radius: 50%;
     object-fit: cover;
-    color: #fff;
-    background: #607da8;
+    background: #e2e8f0;
+}
+
+.video-card-avatar-placeholder {
+    display: grid;
+    place-items: center;
+    color: #475569;
     font-size: 10px;
     font-weight: 700;
+}
+
+.video-card-creator-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .video-card-verified {
@@ -131,32 +153,31 @@
 }
 
 .video-card-verified svg {
-    width: 13px;
-    height: 13px;
+    width: 14px;
+    height: 14px;
     fill: currentColor;
     stroke: #fff;
-    stroke-linecap: round;
-    stroke-linejoin: round;
     stroke-width: 1.5;
 }
 
 .video-card-meta {
-    margin: 3px 0 0 28px;
-    color: #5b6880;
-    font-size: 11px;
+    margin: 0;
+    color: #718099;
+    font-size: 12px;
 }
 
 .video-card-meta span {
-    padding: 0 3px;
+    padding: 0 4px;
+    opacity: 0.6;
 }
 
 .video-card-description {
     display: -webkit-box;
-    margin: 14px 0 0;
+    margin: 12px 0 0;
     overflow: hidden;
     color: #718099;
     font-size: 13px;
-    line-height: 1.45;
+    line-height: 1.5;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
 }
@@ -168,114 +189,40 @@
 .video-card-more {
     display: grid;
     flex: 0 0 auto;
-    width: 28px;
-    height: 28px;
-    margin: -3px -6px 0 0;
-    padding: 0;
+    width: 32px;
+    height: 32px;
+    margin: -4px -8px 0 0;
     place-items: center;
-    border: 0;
+    border: none;
     border-radius: 50%;
-    color: #5b6880;
+    color: #94a3b8;
     background: transparent;
     cursor: pointer;
+    transition: background 0.2s, color 0.2s;
 }
 
-.video-card-more:hover,
-.video-card-more:focus-visible {
+.video-card-more:hover {
     color: #17233f;
-    background: #f1f4f9;
+    background: rgba(15, 23, 42, 0.05);
 }
 
 .video-card-more svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     fill: currentColor;
 }
 
-.video-card-more:focus-visible {
-    outline: 3px solid rgba(197, 22, 39, 0.18);
-    outline-offset: 2px;
-}
-
+/* Variante de lista */
 .video-card--list {
     display: flex;
-    gap: 16px;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-    background: transparent;
+    align-items: flex-start;
+    gap: 20px;
 }
 
 .video-card--list .video-card-media {
-    width: min(42%, 500px);
-    flex: 0 0 min(42%, 500px);
+    width: min(40%, 420px);
+    flex: 0 0 min(40%, 420px);
     aspect-ratio: 16 / 9;
-    border-radius: 12px;
 }
 
-.video-card--list .video-card-content {
-    padding: 0;
-}
-
-.video-card--list h2 {
-    font-size: 18px;
-    font-weight: 500;
-    -webkit-line-clamp: 2;
-}
-
-.video-card--list .video-card-creator {
-    margin-top: 20px;
-}
-
-.video-card--list .video-card-description {
-    margin-top: 16px;
-}
-
-.is-dark .video-card:not(.video-card--list) {
-    border-color: #252e43;
-    background: #171d2d;
-}
-
-.is-dark .video-card h2 {
-    color: #edf2ff;
-}
-
-.is-dark .video-card-creator,
-.is-dark .video-card-meta {
-    color: #aebbd1;
-}
-
-.is-dark .video-card-description {
-    color: #97a4bd;
-}
-
-.is-dark .video-card-more:hover,
-.is-dark .video-card-more:focus-visible {
-    color: #edf2ff;
-    background: #20283b;
-}
-
-@media (max-width: 620px) {
-    .video-card--list {
-        gap: 10px;
-    }
-
-    .video-card--list .video-card-media {
-        width: 42%;
-        flex-basis: 42%;
-    }
-
-    .video-card--list h2 {
-        font-size: 15px;
-    }
-
-    .video-card--list .video-card-creator {
-        margin-top: 8px;
-        font-size: 12px;
-    }
-
-    .video-card--list .video-card-meta,
-    .video-card--list .video-card-description {
-        font-size: 11px;
-    }
-}
+.video-card--list .video-card

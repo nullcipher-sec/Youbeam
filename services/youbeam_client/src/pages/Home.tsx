@@ -16,10 +16,8 @@ import { formatDuration, formatRelativeDate } from '../lib/format'
 import type { Video } from '../types/video'
 import './Home.css'
 
-// Tamaño de página del catálogo; el Core admite como máximo 50
 const CATALOG_PAGE_SIZE = 9
 
-// Secciones que exigen sesión: sin ella se invita a iniciar sesión en lugar de mostrar un 401
 const PRIVATE_SECTIONS: SidebarItem[] = ['videos', 'private', 'hidden']
 
 function Home() {
@@ -38,12 +36,12 @@ function Home() {
   useEffect(() => {
     let mounted = true
     void getCurrentUser()
-      .then((current) => {
-        if (mounted) setUser(current)
-      })
-      .catch(() => {
-        if (mounted) setUser(null)
-      })
+        .then((current) => {
+          if (mounted) setUser(current)
+        })
+        .catch(() => {
+          if (mounted) setUser(null)
+        })
     return () => {
       mounted = false
     }
@@ -70,7 +68,6 @@ function Home() {
     try {
       await logout()
     } finally {
-      // Aunque falle la petición, el cliente deja de considerarse autenticado
       setUser(null)
       setActiveItem('home')
       setPanel('catalog')
@@ -88,54 +85,84 @@ function Home() {
     window.location.assign('/auth')
   }
 
-  // El Core no devuelve el total del catálogo: si la página viene llena, se ofrece una más
   const totalItems = (currentPage - 1) * CATALOG_PAGE_SIZE + videos.length
-    + (videos.length === CATALOG_PAGE_SIZE ? 1 : 0)
+      + (videos.length === CATALOG_PAGE_SIZE ? 1 : 0)
   const query = search.trim().toLowerCase()
   const visibleVideos = query
-    ? videos.filter((video) => `${video.title} ${video.description ?? ''}`.toLowerCase().includes(query))
-    : videos
+      ? videos.filter((video) => `${video.title} ${video.description ?? ''}`.toLowerCase().includes(query))
+      : videos
   const needsLogin = user === null && (PRIVATE_SECTIONS.includes(activeItem) || panel === 'upload')
 
   function renderMain() {
     if (activeItem === 'settings') {
       return (
-        <div className="theme-setting">
-          <div>
-            <strong>Apariencia</strong>
-            <span>Personaliza cómo ves tu espacio de creador.</span>
+          <div className="settings-container">
+            <header className="settings-header">
+              <h1>Configuración</h1>
+              <p>Administra tu perfil y preferencias de visualización</p>
+            </header>
+
+            <div className="settings-list">
+              <div className="settings-card">
+                <div className="profile-info-group">
+                  <div className="profile-avatar">
+                    {user ? (user.displayName?.charAt(0) || user.username.charAt(0)).toUpperCase() : '?'}
+                  </div>
+                  <div className="profile-details">
+                    <strong>{user ? (user.displayName || user.username) : 'Sesión de invitado'}</strong>
+                    <span>{user ? 'Cuenta activa' : 'Inicia sesión para gestionar tus videos'}</span>
+                  </div>
+                </div>
+                {user ? (
+                    <button className="settings-action-btn is-logout" type="button" onClick={() => void handleLogout()}>
+                      Cerrar sesión
+                    </button>
+                ) : (
+                    <button className="settings-action-btn is-login" type="button" onClick={goToLogin}>
+                      Iniciar sesión
+                    </button>
+                )}
+              </div>
+
+              <div className="settings-card">
+                <div className="settings-text-group">
+                  <strong>Apariencia</strong>
+                  <span>Cambia entre el modo claro y oscuro</span>
+                </div>
+                <button
+                    className={`modern-toggle ${darkMode ? 'is-active' : ''}`}
+                    type="button"
+                    aria-pressed={darkMode}
+                    onClick={() => setDarkMode((enabled) => !enabled)}
+                >
+                  <div className="toggle-track"><span className="toggle-knob" /></div>
+                  <span className="toggle-label">{darkMode ? 'Oscuro' : 'Claro'}</span>
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            className={`theme-switch ${darkMode ? 'is-on' : ''}`}
-            type="button"
-            aria-pressed={darkMode}
-            onClick={() => setDarkMode((enabled) => !enabled)}
-          >
-            <span />
-            {darkMode ? 'Modo oscuro' : 'Modo claro'}
-          </button>
-        </div>
       )
     }
+
     if (needsLogin) {
       return (
-        <div className="empty-state">
-          <p>Inicia sesión para gestionar y subir tus videos.</p>
-          <button className="primary-action" type="button" onClick={goToLogin}>Iniciar sesión</button>
-        </div>
+          <div className="empty-state">
+            <p>Inicia sesión para gestionar y subir tus videos.</p>
+            <button className="primary-action" type="button" onClick={goToLogin}>Iniciar sesión</button>
+          </div>
       )
     }
     if (PRIVATE_SECTIONS.includes(activeItem)) {
       return (
-        <MyVideos
-          key={activeItem}
-          visibilityFilter={activeItem === 'private' ? 'private' : activeItem === 'hidden' ? 'hidden' : undefined}
-          onPlay={setPlayingVideo}
-          onUpload={() => {
-            setActiveItem('home')
-            setPanel('upload')
-          }}
-        />
+          <MyVideos
+              key={activeItem}
+              visibilityFilter={activeItem === 'private' ? 'private' : activeItem === 'hidden' ? 'hidden' : undefined}
+              onPlay={setPlayingVideo}
+              onUpload={() => {
+                setActiveItem('home')
+                setPanel('upload')
+              }}
+          />
       )
     }
     if (activeItem === 'streaming') {
@@ -143,14 +170,14 @@ function Home() {
     }
     if (panel === 'upload') {
       return (
-        <UploadVideo
-          onCancel={() => setPanel('catalog')}
-          onComplete={() => {
-            setPanel('catalog')
-            setActiveItem('videos')
-            void loadCatalog(currentPage)
-          }}
-        />
+          <UploadVideo
+              onCancel={() => setPanel('catalog')}
+              onComplete={() => {
+                setPanel('catalog')
+                setActiveItem('videos')
+                void loadCatalog(currentPage)
+              }}
+          />
       )
     }
     if (error !== null) {
@@ -163,65 +190,64 @@ function Home() {
       return <p className="empty-state">{query ? 'Ningún video coincide con la búsqueda' : 'Aun no hay elementos disponibles'}</p>
     }
     return (
-      <div className={`video-card-list video-card-list--${view}`}>
-        {visibleVideos.map((video) => (
-          <CardVideo
-            key={video.id}
-            videoId={video.id}
-            title={video.title}
-            description={video.description ?? undefined}
-            duration={formatDuration(video.durationSeconds)}
-            publishedAt={formatRelativeDate(video.publishedAt ?? video.createdAt)}
-            variant={view}
-            onPlay={() => setPlayingVideo(video)}
-          />
-        ))}
-      </div>
+        <div className={`video-card-list video-card-list--${view}`}>
+          {visibleVideos.map((video) => (
+              <CardVideo
+                  key={video.id}
+                  videoId={video.id}
+                  title={video.title}
+                  description={video.description ?? undefined}
+                  duration={formatDuration(video.durationSeconds)}
+                  publishedAt={formatRelativeDate(video.publishedAt ?? video.createdAt)}
+                  variant={view}
+                  onPlay={() => setPlayingVideo(video)}
+              />
+          ))}
+        </div>
     )
   }
 
-  const showCatalogChrome = activeItem === 'home' && panel === 'catalog'
+  const showCatalogChrome = activeItem === 'home' && panel === 'catalog' && playingVideo === null
 
   return (
-    <main className="home-page">
-      <Sidebar activeItem={activeItem} onNavigate={navigate} darkMode={darkMode} />
-      <section className={`home-content ${darkMode ? 'is-dark' : ''}`}>
-        {showCatalogChrome && (
-          <>
-            <BarHeader
-              isAuthenticated={user !== null}
-              userName={user?.displayName || user?.username}
-              onSearch={setSearch}
-              onLogin={goToLogin}
-              onLogout={() => void handleLogout()}
-              onUpload={() => setPanel('upload')}
-            />
-            <FilterBar view={view} onViewChange={setView} />
-          </>
-        )}
-        <div className="home-scroll">
-          <div className={`home-main ${activeItem === 'home' ? 'home-main--home' : ''}`}>
-            {renderMain()}
+      <main className="home-page">
+        <Sidebar activeItem={activeItem} onNavigate={navigate} darkMode={darkMode} />
+        <section className={`home-content ${darkMode ? 'is-dark' : ''}`}>
+          {showCatalogChrome && (
+              <>
+                <BarHeader
+                    isAuthenticated={user !== null}
+                    userName={user?.displayName || user?.username}
+                    onSearch={setSearch}
+                    onLogin={goToLogin}
+                    onLogout={() => void handleLogout()}
+                    onUpload={() => setPanel('upload')}
+                />
+                <FilterBar view={view} onViewChange={setView} />
+              </>
+          )}
+          <div className="home-scroll">
+            <div className={`home-main ${activeItem === 'home' ? 'home-main--home' : ''}`}>
+              {playingVideo ? (
+                  <VideoPlayer
+                      videoId={playingVideo.id}
+                      title={playingVideo.title}
+                      description={playingVideo.description}
+                      onClose={() => setPlayingVideo(null)}
+                  />
+              ) : renderMain()}
+            </div>
           </div>
-        </div>
-        {showCatalogChrome && (
-          <PageEnumeration
-            totalItems={totalItems}
-            itemsPerPage={CATALOG_PAGE_SIZE}
-            currentPage={currentPage}
-            onPageChange={setCurrentPage}
-          />
-        )}
-        {playingVideo && (
-          <VideoPlayer
-            videoId={playingVideo.id}
-            title={playingVideo.title}
-            description={playingVideo.description}
-            onClose={() => setPlayingVideo(null)}
-          />
-        )}
-      </section>
-    </main>
+          {showCatalogChrome && (
+              <PageEnumeration
+                  totalItems={totalItems}
+                  itemsPerPage={CATALOG_PAGE_SIZE}
+                  currentPage={currentPage}
+                  onPageChange={setCurrentPage}
+              />
+          )}
+        </section>
+      </main>
   )
 }
 

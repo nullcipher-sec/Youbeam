@@ -38,20 +38,20 @@ function VerifiedIcon() {
 }
 
 function CardVideo({
-    title,
-    creator,
-    views,
-    publishedAt,
-    duration,
-    thumbnail,
-    avatar,
-    badge,
-    description,
-    verified = false,
-    variant = 'grid',
-    videoId,
-    onPlay,
-}: CardVideoProps) {
+                       title,
+                       creator,
+                       views,
+                       publishedAt,
+                       duration,
+                       thumbnail,
+                       avatar,
+                       badge,
+                       description,
+                       verified = false,
+                       variant = 'grid',
+                       videoId,
+                       onPlay,
+                   }: CardVideoProps) {
     return (
         <article className={`video-card video-card--${variant}`} onClick={() => onPlay?.(videoId)} tabIndex={onPlay ? 0 : undefined} onKeyDown={(event) => {
             if (onPlay && (event.key === 'Enter' || event.key === ' ')) {
@@ -61,9 +61,8 @@ function CardVideo({
         }}>
             <div className="video-card-media">
                 {thumbnail ? (
-                    <img src={thumbnail} alt="" />
+                    <img src={thumbnail} alt="" loading="lazy" />
                 ) : (
-                    // El Core aún no genera miniaturas: se muestra un marcador con la inicial del título
                     <span className="video-card-thumbnail-placeholder" aria-hidden="true">
                         {title.charAt(0).toUpperCase()}
                     </span>
@@ -82,25 +81,29 @@ function CardVideo({
                     )}
                 </div>
 
-                {creator && <div className="video-card-creator">
-                    {avatar ? (
-                        <img src={avatar} alt="" />
-                    ) : (
-                        <span className="video-card-avatar-placeholder" aria-hidden="true">
-                            {creator.charAt(0)}
-                        </span>
+                <div className="video-card-meta-group">
+                    {creator && (
+                        <div className="video-card-creator">
+                            {avatar ? (
+                                <img src={avatar} alt="" />
+                            ) : (
+                                <span className="video-card-avatar-placeholder" aria-hidden="true">
+                                    {creator.charAt(0)}
+                                </span>
+                            )}
+                            <span className="video-card-creator-name">{creator}</span>
+                            {verified && (
+                                <span className="video-card-verified" title="Creador verificado">
+                                    <VerifiedIcon />
+                                </span>
+                            )}
+                        </div>
                     )}
-                    <span>{creator}</span>
-                    {verified && (
-                        <span className="video-card-verified" title="Creador verificado">
-                            <VerifiedIcon />
-                        </span>
-                    )}
-                </div>}
 
-                <p className="video-card-meta">
-                    {views && <>{views} vistas <span aria-hidden="true">•</span> </>}{publishedAt}
-                </p>
+                    <p className="video-card-meta">
+                        {views && <>{views} vistas <span aria-hidden="true">•</span> </>}{publishedAt}
+                    </p>
+                </div>
 
                 {description && <p className="video-card-description">{description}</p>}
             </div>
