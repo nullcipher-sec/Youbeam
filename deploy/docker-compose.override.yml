@@ -1,0 +1,11 @@
+# Solo desarrollo: `docker compose up` carga este archivo automáticamente.
+# En producción usar:  docker compose -f docker-compose.yml up -d --build
+services:
+  database:
+    ports:
+      # Para `psql -h localhost -p $POSTGRES_PORT ...`. Solo localhost.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+  minio:
+    ports:
+      # API S3 para pruebas locales (tests de Marcelo, mc, etc.). Solo localhost.
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
