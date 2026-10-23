@@ -146,12 +146,23 @@ function Home() {
 
     if (needsLogin) {
       return (
-          <div className="empty-state">
-            <p>Inicia sesión para gestionar y subir tus videos.</p>
-            <button className="primary-action" type="button" onClick={goToLogin}>Iniciar sesión</button>
+          <div className="home-premium-state-container">
+            <div className="home-premium-state">
+              <div className="home-state-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/>
+                </svg>
+              </div>
+              <h2 className="home-state-title">Acceso requerido</h2>
+              <p className="home-state-desc">Para acceder a esta sección y subir o gestionar tu contenido, necesitas iniciar sesión en tu cuenta.</p>
+              <button className="home-btn-corporate" type="button" onClick={goToLogin}>
+                Iniciar sesión
+              </button>
+            </div>
           </div>
       )
     }
+
     if (PRIVATE_SECTIONS.includes(activeItem)) {
       return (
           <MyVideos

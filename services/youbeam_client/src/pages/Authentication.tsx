@@ -5,37 +5,42 @@ import './Authentication.css'
 
 type AuthMode = 'login' | 'signup'
 
-function Icon({ name }: { name: 'mail' | 'lock' | 'eye' | 'eye-off' }) {
+function Icon({ name }: { name: 'mail' | 'lock' | 'eye' | 'eye-off' | 'user' }) {
   if (name === 'mail') {
     return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="3" y="5" width="18" height="14" rx="2" />
           <path d="m4 7 8 6 8-6" />
         </svg>
     )
   }
-
-  if (name === 'lock') {
+  if (name === 'user') {
     return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <rect x="5" y="10" width="14" height="10" rx="2" />
-          <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
         </svg>
     )
   }
-
+  if (name === 'lock') {
+    return (
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+    )
+  }
   if (name === 'eye-off') {
     return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M2.5 12s3.2-5 9.5-5 9.5 5 9.5 5-3.2 5-9.5 5-9.5-5-9.5-5Z" />
           <circle cx="12" cy="12" r="2.5" />
           <path d="m4 4 16 16" />
         </svg>
     )
   }
-
   return (
-      <svg aria-hidden="true" viewBox="0 0 24 24">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M2.5 12s3.2-5 9.5-5 9.5 5 9.5 5-3.2 5-9.5 5-9.5-5-9.5-5Z" />
         <circle cx="12" cy="12" r="2.5" />
       </svg>
@@ -71,23 +76,21 @@ function Authentication() {
     event.preventDefault()
 
     if (!isLogin && !acceptedTerms) {
-      showMessage('Debes aceptar los términos y condiciones de la comunidad para continuar.', true)
+      showMessage('Debes aceptar los términos y condiciones.', true)
       return
     }
 
     setSubmitting(true)
     try {
-      // Al registrarse se inicia sesión directamente: el Core devuelve la cookie HttpOnly en el login
       if (!isLogin) {
         await register({ username: username.trim(), email: identifier.trim(), password })
       }
       await login({ login: isLogin ? identifier.trim() : username.trim(), password })
-      showMessage(isLogin ? 'Sesión iniciada. Entrando a YouBeam...' : 'Cuenta creada. Bienvenido a YouBeam.', false)
+      showMessage(isLogin ? 'Sesión iniciada.' : 'Cuenta creada.', false)
       window.location.assign('/')
     } catch (authError) {
-      // El Core responde igual si el usuario no existe o la contraseña falla, para no revelar cuentas
       if (authError instanceof ApiError && authError.status === 400 && !isLogin) {
-        showMessage('Revisa los datos: usuario de 3 a 50 caracteres (letras, números, . _ -), correo válido y contraseña de al menos 12 caracteres.', true)
+        showMessage('Verifica tus datos: usuario válido y contraseña de 12 caracteres.', true)
       } else if (authError instanceof ApiError && authError.status === 401) {
         showMessage('Usuario o contraseña incorrectos.', true)
       } else {
@@ -99,40 +102,32 @@ function Authentication() {
   }
 
   return (
-      <main className="authentication-page">
-        <button className="auth-back-button" type="button" onClick={() => window.location.assign('/')}>
-          <span aria-hidden="true">←</span>
-          Volver al inicio
+      <main className="auth-minimal-page">
+        <button className="auth-minimal-back" type="button" onClick={() => window.location.assign('/')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+          Volver
         </button>
-        <section className={`auth-card ${isLogin ? 'is-login' : 'is-signup'}`}>
-          <div className="auth-panel">
-            <div className="auth-panel-content" key={`panel-${mode}`}>
-              <h1>{isLogin ? '¡Hola de nuevo!' : 'Transmitir es conectar'}</h1>
-              <p>
-                {isLogin
-                    ? 'Accede a tu cuenta para gestionar tus canales, revisar tus métricas de reproducción y continuar disfrutando de tu contenido preferido.'
-                    : 'Únete a YouBeam para publicar tus vídeos, interactuar con tus creadores favoritos y personalizar tus listas de reproducción.'}
-              </p>
-              <button
-                  className="panel-button"
-                  type="button"
-                  onClick={() => switchMode(isLogin ? 'signup' : 'login')}
-              >
-                {isLogin ? 'Crear una cuenta' : 'Iniciar sesión'}
-              </button>
-            </div>
+
+        <section className="auth-minimal-card">
+          <div className="auth-minimal-header">
+            <div className="auth-minimal-logo">YOUBEAM</div>
+            <h1>{isLogin ? 'Bienvenido de nuevo' : 'Crea tu cuenta'}</h1>
+            <p>{isLogin ? 'Ingresa tus credenciales para continuar' : 'Únete y empieza a compartir tu contenido'}</p>
           </div>
 
-          <form className="auth-form" key={`form-${mode}`} onSubmit={(event) => void handleSubmit(event)}>
-              <div className="auth-heading">
-                <span className="auth-kicker">YOU<span>BEAM</span></span>
-                <h2>{isLogin ? 'Iniciar sesión' : 'Crear tu cuenta'}</h2>
-                <p>{isLogin ? 'Vuelve a tu espacio creativo.' : 'Empieza a compartir lo que te inspira.'}</p>
-              </div>
+          <div className="auth-minimal-toggle">
+            <button type="button" className={isLogin ? 'is-active' : ''} onClick={() => switchMode('login')}>
+              Iniciar sesión
+            </button>
+            <button type="button" className={!isLogin ? 'is-active' : ''} onClick={() => switchMode('signup')}>
+              Registrarse
+            </button>
+          </div>
 
+          <form className="auth-minimal-form" onSubmit={(event) => void handleSubmit(event)}>
             {!isLogin && (
-                <label className="input-field">
-                  <Icon name="mail" />
+                <label className="auth-minimal-field">
+                  <div className="field-icon"><Icon name="user" /></div>
                   <input
                       type="text"
                       placeholder="Nombre de usuario"
@@ -147,11 +142,11 @@ function Authentication() {
                 </label>
             )}
 
-            <label className="input-field">
-              <Icon name="mail" />
+            <label className="auth-minimal-field">
+              <div className="field-icon"><Icon name="mail" /></div>
               <input
                   type={isLogin ? 'text' : 'email'}
-                  placeholder={isLogin ? 'Correo electrónico o usuario' : 'Correo electrónico'}
+                  placeholder={isLogin ? 'Correo o usuario' : 'Correo electrónico'}
                   autoComplete={isLogin ? 'username' : 'email'}
                   required
                   maxLength={255}
@@ -160,11 +155,11 @@ function Authentication() {
               />
             </label>
 
-            <label className="input-field">
-              <Icon name="lock" />
+            <label className="auth-minimal-field">
+              <div className="field-icon"><Icon name="lock" /></div>
               <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder={isLogin ? 'Contraseña de acceso' : 'Contraseña (mínimo 12 caracteres)'}
+                  placeholder="Contraseña"
                   autoComplete={isLogin ? 'current-password' : 'new-password'}
                   required
                   minLength={isLogin ? undefined : 12}
@@ -173,9 +168,8 @@ function Authentication() {
                   onChange={(event) => setPassword(event.target.value)}
               />
               <button
-                  className="icon-button"
+                  className="field-toggle-btn"
                   type="button"
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   onClick={() => setShowPassword((visible) => !visible)}
               >
                 <Icon name={showPassword ? 'eye-off' : 'eye'} />
@@ -183,51 +177,28 @@ function Authentication() {
             </label>
 
             {isLogin ? (
-                <label className="check-row">
-                  <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(event) => setRememberMe(event.target.checked)}
-                  />
-                  <span>Mantener la sesión iniciada</span>
+                <label className="auth-minimal-checkbox">
+                  <input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />
+                  <div className="checkbox-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+                  <span>Mantener sesión iniciada</span>
                 </label>
             ) : (
-                <label className="check-row">
-                  <input
-                      type="checkbox"
-                      checked={acceptedTerms}
-                      onChange={(event) => setAcceptedTerms(event.target.checked)}
-                  />
-                  <span>Acepto los Términos del servicio y Normas de la comunidad</span>
+                <label className="auth-minimal-checkbox">
+                  <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
+                  <div className="checkbox-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+                  <span>Acepto los términos y condiciones</span>
                 </label>
             )}
 
-            <button className="submit-button" type="submit" disabled={submitting}>
-              {submitting ? 'Procesando...' : isLogin ? 'Ingresar a la plataforma' : 'Unirme a YouBeam'}
+            {message && (
+                <div className={`auth-minimal-message ${isError ? 'is-error' : 'is-success'}`}>
+                  {message}
+                </div>
+            )}
+
+            <button className="auth-minimal-submit" type="submit" disabled={submitting}>
+              {submitting ? 'Procesando...' : isLogin ? 'Ingresar' : 'Crear cuenta'}
             </button>
-
-            <div className="or-divider">
-              <span>O continuar con</span>
-            </div>
-
-            <button
-                className="google-button"
-                type="button"
-                onClick={() => showMessage('El inicio de sesión con Google no está disponible.', true)}
-            >
-              <span className="google-mark">G</span>
-              Continuar con Google
-            </button>
-
-            <p className="legal-copy">
-              Al {isLogin ? 'acceder a' : 'registrarte en'} <strong>YouBeam</strong>, confirmas tu conformidad con nuestras{' '}
-              <a href="#terms">Condiciones del servicio</a> y la{' '}
-              <a href="#privacy">Política de privacidad</a>.
-            </p>
-
-            <p className={`form-message ${message ? 'visible' : ''} ${isError ? 'is-error' : ''}`} role="status">
-              {message}
-            </p>
           </form>
         </section>
       </main>
