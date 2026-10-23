@@ -8,7 +8,6 @@ type StreamingPlayerProps = {
     initialVideoId?: string
 }
 
-// Se acepta el enlace compartido (/watch/{id}) o el id; solo se envía al Core un UUID válido
 const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
 function StreamingPlayer({ initialVideoId = '' }: StreamingPlayerProps) {
@@ -31,12 +30,12 @@ function StreamingPlayer({ initialVideoId = '' }: StreamingPlayerProps) {
     async function connect(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         if (!window.RTCPeerConnection) {
-            setError('Este navegador no soporta recepción de streaming WebRTC.')
+            setError('Tu navegador no soporta WebRTC.')
             return
         }
         const id = videoId.match(UUID_PATTERN)?.[0]
         if (!id) {
-            setError('Pega el enlace o el id de un video.')
+            setError('Ingresa un ID o enlace válido.')
             return
         }
 
@@ -48,7 +47,7 @@ function StreamingPlayer({ initialVideoId = '' }: StreamingPlayerProps) {
         peerConnection.onconnectionstatechange = () => {
             setConnectionState(peerConnection.connectionState)
             if (peerConnection.connectionState === 'failed') {
-                setError('No se pudo abrir la conexión WebRTC (UDP) con el servidor de streaming. Revisa la VPN, el firewall o el permiso de «Red local» del navegador.')
+                setError('Error de conexión UDP. Verifica tu red o firewall.')
             }
         }
 
@@ -67,51 +66,49 @@ function StreamingPlayer({ initialVideoId = '' }: StreamingPlayerProps) {
     }, [])
 
     return (
-        <section className="streaming-panel">
-            <div className="streaming-panel-heading">
-                <div>
-                    <span className="streaming-eyebrow">Transmisión cifrada</span>
-                    <h1>Streaming seguro</h1>
-                    <p>Recibe un video por WebRTC sobre UDP con DTLS-SRTP, usando un ticket JWT de un solo uso.</p>
+        <section className="sp-minimal">
+            <header className="sp-header">
+                <div className="sp-title-group">
+                    <h1 className="sp-title">Streaming</h1>
+                    <span className={`sp-status ${isConnected ? 'is-live' : ''}`}>
+                        <span className="sp-status-dot" />
+                        {isConnected ? 'En vivo' : connectionState === 'new' ? 'Listo' : connectionState}
+                    </span>
                 </div>
-                <span className={`streaming-status ${isConnected ? 'is-live' : ''}`}>
-                    <span />
-                    {isConnected ? 'En vivo' : `Estado: ${connectionState}`}
-                </span>
-            </div>
 
-            <form className="streaming-form" onSubmit={(event) => void connect(event)}>
-                <input
-                    value={videoId}
-                    onChange={(event) => setVideoId(event.target.value)}
-                    placeholder="Enlace o id del video"
-                    aria-label="Enlace o id del video"
-                    spellCheck={false}
-                />
-                <button type="submit" disabled={isConnecting}>
-                    {isConnecting ? 'Conectando...' : 'Reproducir'}
-                </button>
-                {connectionState !== 'new' && connectionState !== 'closed' && (
-                    <button type="button" className="streaming-stop" onClick={disconnect}>Detener</button>
-                )}
-            </form>
+                <form className="sp-form" onSubmit={(event) => void connect(event)}>
+                    <input
+                        value={videoId}
+                        onChange={(event) => setVideoId(event.target.value)}
+                        placeholder="Enlace o ID del video"
+                        aria-label="Enlace o ID del video"
+                        spellCheck={false}
+                    />
+                    <button type="submit" disabled={isConnecting}>
+                        {isConnecting ? 'Conectando...' : 'Reproducir'}
+                    </button>
+                    {connectionState !== 'new' && connectionState !== 'closed' && (
+                        <button type="button" className="sp-btn-stop" onClick={disconnect}>Detener</button>
+                    )}
+                </form>
+            </header>
 
-            <div className="streaming-player-shell">
+            <div className="sp-stage">
                 <video ref={videoRef} autoPlay controls playsInline />
                 {!isConnected && (
-                    <div className="streaming-placeholder">
-                        <div className="streaming-placeholder-icon">▶</div>
-                        <strong>{isConnecting ? 'Conectando con el servidor...' : 'Tu reproductor está listo'}</strong>
-                        <span>Pega el enlace de un video (en «Mis videos» → Copiar enlace) y pulsa Reproducir.</span>
+                    <div className="sp-placeholder">
+                        <p>{isConnecting ? 'Conectando de forma segura...' : 'Ingresa un enlace para comenzar la transmisión.'}</p>
                     </div>
                 )}
-                {error && <p className="streaming-error" role="alert">{error}</p>}
+                {error && <div className="sp-error">{error}</div>}
             </div>
 
-            <div className="streaming-security-grid">
-                <div><strong>WebRTC sobre UDP</strong><span>Transporte de baja latencia</span></div>
-                <div><strong>DTLS-SRTP</strong><span>Medio cifrado con AES-GCM</span></div>
-                <div><strong>Ticket JWT ES256</strong><span>Un solo uso, caduca en 60 s</span></div>
+            <div className="sp-footer">
+                <span>WebRTC sobre UDP</span>
+                <span className="sp-separator">·</span>
+                <span>Cifrado DTLS-SRTP</span>
+                <span className="sp-separator">·</span>
+                <span>Ticket JWT de un solo uso</span>
             </div>
         </section>
     )
