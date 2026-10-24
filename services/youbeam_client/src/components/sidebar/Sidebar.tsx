@@ -99,10 +99,10 @@ const streamingItems: Array<{ id: SidebarItem; label: string; icon: IconName }> 
 
 function Sidebar({ activeItem = 'home', onNavigate, darkMode = false }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(true)
-    const [selectedItem, setSelectedItem] = useState<SidebarItem>(activeItem)
+    // La sección activa la decide Home: así se mantiene sincronizada si cambia desde otro sitio
+    const selectedItem = activeItem
 
     function navigate(item: SidebarItem) {
-        setSelectedItem(item)
         onNavigate?.(item)
     }
 

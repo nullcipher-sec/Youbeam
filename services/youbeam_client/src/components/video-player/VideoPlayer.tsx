@@ -1,134 +1,81 @@
 import { useEffect, useRef, useState } from 'react'
-import { getApiErrorMessage, negotiateStreamOffer, requestPlaybackTicket } from '../../lib/api'
+import { getApiErrorMessage } from '../../lib/api'
+import { createReceiver, startPlayback } from '../../lib/webrtc'
 import './video-player.css'
 
 type VideoPlayerProps = {
     videoId: string
     title: string
+    description?: string | null
     onClose: () => void
 }
 
-function VideoPlayer({ videoId, title, onClose }: VideoPlayerProps) {
+function VideoPlayer({ videoId, title, description, onClose }: VideoPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null)
-    const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
-    const [status, setStatus] = useState(() => window.RTCPeerConnection ? 'Conectando con el servidor...' : '')
-    const [error, setError] = useState<string | null>(() => window.RTCPeerConnection ? null : 'Este navegador no soporta reproducción WebRTC.')
+    const [status, setStatus] = useState(() => window.RTCPeerConnection ? 'Conectando...' : '')
+    const [error, setError] = useState<string | null>(() => window.RTCPeerConnection ? null : 'Navegador sin soporte WebRTC.')
 
     useEffect(() => {
         let cancelled = false
-        if (!window.RTCPeerConnection) {
-            return
-        }
+        if (!window.RTCPeerConnection) return
 
-        const peerConnection = new RTCPeerConnection()
-        peerConnectionRef.current = peerConnection
-
-        peerConnection.addTransceiver('video', { direction: 'recvonly' })
-        peerConnection.addTransceiver('audio', { direction: 'recvonly' })
-
-        peerConnection.ontrack = (event) => {
-            if (!videoRef.current || cancelled) {
-                return
-            }
-
-            const [stream] = event.streams
-            if (stream) {
-                videoRef.current.srcObject = stream
+        const peerConnection = createReceiver(() => (cancelled ? null : videoRef.current))
+        peerConnection.onconnectionstatechange = () => {
+            if (cancelled) return
+            if (peerConnection.connectionState === 'connected') setStatus('')
+            if (peerConnection.connectionState === 'failed') {
+                setError('Error de conexión UDP. Revisa tu red o VPN.')
+                setStatus('')
             }
         }
 
-        async function connect() {
-            try {
-                const ticket = await requestPlaybackTicket(videoId)
-                if (cancelled) {
-                    return
+        startPlayback(peerConnection, videoId)
+            .then(() => {
+                if (!cancelled && peerConnection.connectionState !== 'connected') {
+                    setStatus('Estableciendo conexión segura...')
                 }
-
-                const offer = await peerConnection.createOffer()
-                await peerConnection.setLocalDescription(offer)
-                await waitForIceGathering(peerConnection)
-
-                if (!peerConnection.localDescription || cancelled) {
-                    return
-                }
-
-                const answerSdp = await negotiateStreamOffer(peerConnection.localDescription.sdp, ticket)
-                await peerConnection.setRemoteDescription({
-                    type: 'answer',
-                    sdp: answerSdp,
-                })
-
-                if (!cancelled) {
-                    setStatus('Reproduciendo')
-                }
-            } catch (connectionError) {
+            })
+            .catch((connectionError: unknown) => {
                 if (!cancelled) {
                     setError(getApiErrorMessage(connectionError))
                     setStatus('')
                 }
-            }
-        }
-
-        void connect()
+            })
 
         return () => {
             cancelled = true
             peerConnection.close()
-            peerConnectionRef.current = null
         }
     }, [videoId])
 
     return (
-        <div className="video-player-backdrop" role="presentation" onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-                onClose()
-            }
-        }}>
-            <section className="video-player-dialog" role="dialog" aria-modal="true" aria-label={title}>
-                <div className="video-player-header">
-                    <h2>{title}</h2>
-                    <button type="button" className="video-player-close" onClick={onClose} aria-label="Cerrar reproductor">
-                        ×
-                    </button>
+        <section className="vp-minimal" aria-label={`Reproduciendo ${title}`}>
+            <header className="vp-header">
+                <button type="button" className="vp-back" onClick={onClose} aria-label="Volver a videos">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                    Volver
+                </button>
+                <h2 className="vp-title">{title}</h2>
+            </header>
+
+            <div className="vp-stage">
+                <video ref={videoRef} autoPlay controls playsInline />
+                {(status || error) && (
+                    <div className={`vp-feedback ${error ? 'is-error' : ''}`}>
+                        {error ?? status}
+                    </div>
+                )}
+            </div>
+
+            {description && (
+                <div className="vp-details">
+                    <p>{description}</p>
                 </div>
-                <div className="video-player-stage">
-                    <video ref={videoRef} autoPlay controls playsInline />
-                    {(status || error) && (
-                        <div className={`video-player-feedback ${error ? 'is-error' : ''}`}>
-                            {error ?? status}
-                        </div>
-                    )}
-                </div>
-            </section>
-        </div>
+            )}
+        </section>
     )
-}
-
-function waitForIceGathering(peerConnection: RTCPeerConnection): Promise<void> {
-    if (peerConnection.iceGatheringState === 'complete') {
-        return Promise.resolve()
-    }
-
-    return new Promise((resolve, reject) => {
-        const timeout = window.setTimeout(() => {
-            cleanup()
-            reject(new Error('La recopilación ICE tardó demasiado.'))
-        }, 10000)
-
-        function cleanup() {
-            window.clearTimeout(timeout)
-            peerConnection.removeEventListener('icegatheringstatechange', handleStateChange)
-        }
-
-        function handleStateChange() {
-            if (peerConnection.iceGatheringState === 'complete') {
-                cleanup()
-                resolve()
-            }
-        }
-
-        peerConnection.addEventListener('icegatheringstatechange', handleStateChange)
-    })
 }
 
 export default VideoPlayer

@@ -1,56 +1,61 @@
 import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { getApiErrorMessage } from '../../lib/api'
+import { createReceiver, startPlayback } from '../../lib/webrtc'
 import './streaming-player.css'
 
-type StreamSignaling = (offerSdp: string) => Promise<string>
-
 type StreamingPlayerProps = {
-    onSignalOffer?: StreamSignaling
+    initialVideoId?: string
 }
 
-function StreamingPlayer({ onSignalOffer }: StreamingPlayerProps) {
+const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+
+function StreamingPlayer({ initialVideoId = '' }: StreamingPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null)
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
+    const [videoId, setVideoId] = useState(initialVideoId)
     const [isConnecting, setIsConnecting] = useState(false)
-    const [isConnected, setIsConnected] = useState(false)
+    const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new')
     const [error, setError] = useState<string | null>(null)
 
-    async function connect() {
+    const isConnected = connectionState === 'connected'
+
+    function disconnect() {
+        peerConnectionRef.current?.close()
+        peerConnectionRef.current = null
+        if (videoRef.current) videoRef.current.srcObject = null
+        setConnectionState('closed')
+    }
+
+    async function connect(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault()
         if (!window.RTCPeerConnection) {
-            setError('Este navegador no soporta recepción de streaming WebRTC.')
+            setError('Tu navegador no soporta WebRTC.')
             return
         }
-        if (!onSignalOffer) {
-            setError('La señalización del servidor todavía no está configurada.')
+        const id = videoId.match(UUID_PATTERN)?.[0]
+        if (!id) {
+            setError('Ingresa un ID o enlace válido.')
             return
         }
 
+        disconnect()
         setError(null)
         setIsConnecting(true)
-        const peerConnection = new RTCPeerConnection()
+        const peerConnection = createReceiver(() => videoRef.current)
         peerConnectionRef.current = peerConnection
-        peerConnection.addTransceiver('video', { direction: 'recvonly' })
-        peerConnection.addTransceiver('audio', { direction: 'recvonly' })
-        peerConnection.ontrack = (event) => {
-            const [stream] = event.streams
-            if (videoRef.current && stream) {
-                videoRef.current.srcObject = stream
+        peerConnection.onconnectionstatechange = () => {
+            setConnectionState(peerConnection.connectionState)
+            if (peerConnection.connectionState === 'failed') {
+                setError('Error de conexión UDP. Verifica tu red o firewall.')
             }
         }
 
         try {
-            const offer = await peerConnection.createOffer()
-            await peerConnection.setLocalDescription(offer)
-            await waitForIceGathering(peerConnection)
-            if (!peerConnection.localDescription) {
-                throw new Error('No se pudo crear la oferta WebRTC.')
-            }
-            const answerSdp = await onSignalOffer(peerConnection.localDescription.sdp)
-            await peerConnection.setRemoteDescription({ type: 'answer', sdp: answerSdp })
-            setIsConnected(true)
+            await startPlayback(peerConnection, id)
         } catch (connectionError) {
-            peerConnection.close()
-            peerConnectionRef.current = null
-            setError(connectionError instanceof Error ? connectionError.message : 'No se pudo iniciar la transmisión.')
+            disconnect()
+            setError(getApiErrorMessage(connectionError))
         } finally {
             setIsConnecting(false)
         }
@@ -61,63 +66,52 @@ function StreamingPlayer({ onSignalOffer }: StreamingPlayerProps) {
     }, [])
 
     return (
-        <section className="streaming-panel">
-            <div className="streaming-panel-heading">
-                <div>
-                    <span className="streaming-eyebrow">Transmisión en vivo</span>
-                    <h1>Streaming seguro</h1>
-                    <p>Recibe una transmisión WebRTC sobre UDP con DTLS-SRTP.</p>
+        <section className="sp-minimal">
+            <header className="sp-header">
+                <div className="sp-title-group">
+                    <h1 className="sp-title">Streaming</h1>
+                    <span className={`sp-status ${isConnected ? 'is-live' : ''}`}>
+                        <span className="sp-status-dot" />
+                        {isConnected ? 'En vivo' : connectionState === 'new' ? 'Listo' : connectionState}
+                    </span>
                 </div>
-                <span className={`streaming-status ${isConnected ? 'is-live' : ''}`}>
-                    <span />
-                    {isConnected ? 'En vivo' : 'Listo para conectar'}
-                </span>
-            </div>
 
-            <div className="streaming-player-shell">
+                <form className="sp-form" onSubmit={(event) => void connect(event)}>
+                    <input
+                        value={videoId}
+                        onChange={(event) => setVideoId(event.target.value)}
+                        placeholder="Enlace o ID del video"
+                        aria-label="Enlace o ID del video"
+                        spellCheck={false}
+                    />
+                    <button type="submit" disabled={isConnecting}>
+                        {isConnecting ? 'Conectando...' : 'Reproducir'}
+                    </button>
+                    {connectionState !== 'new' && connectionState !== 'closed' && (
+                        <button type="button" className="sp-btn-stop" onClick={disconnect}>Detener</button>
+                    )}
+                </form>
+            </header>
+
+            <div className="sp-stage">
                 <video ref={videoRef} autoPlay controls playsInline />
                 {!isConnected && (
-                    <div className="streaming-placeholder">
-                        <div className="streaming-placeholder-icon">▶</div>
-                        <strong>{isConnecting ? 'Conectando con el servidor...' : 'Tu reproductor está listo'}</strong>
-                        <span>La señal de video aparecerá aquí cuando el backend de señalización esté disponible.</span>
-                        <button type="button" onClick={() => void connect()} disabled={isConnecting}>
-                            {isConnecting ? 'Conectando...' : 'Iniciar recepción'}
-                        </button>
+                    <div className="sp-placeholder">
+                        <p>{isConnecting ? 'Conectando de forma segura...' : 'Ingresa un enlace para comenzar la transmisión.'}</p>
                     </div>
                 )}
-                {error && <p className="streaming-error" role="alert">{error}</p>}
+                {error && <div className="sp-error">{error}</div>}
             </div>
 
-            <div className="streaming-security-grid">
-                <div><strong>WebRTC sobre UDP</strong><span>Transporte de baja latencia</span></div>
-                <div><strong>DTLS-SRTP</strong><span>Cifrado de medios extremo a extremo</span></div>
-                <div><strong>Señalización TLS 1.3</strong><span>Preparado para ticket JWT ES256</span></div>
+            <div className="sp-footer">
+                <span>WebRTC sobre UDP</span>
+                <span className="sp-separator">·</span>
+                <span>Cifrado DTLS-SRTP</span>
+                <span className="sp-separator">·</span>
+                <span>Ticket JWT de un solo uso</span>
             </div>
         </section>
     )
 }
 
-function waitForIceGathering(peerConnection: RTCPeerConnection): Promise<void> {
-    if (peerConnection.iceGatheringState === 'complete') return Promise.resolve()
-    return new Promise((resolve, reject) => {
-        const timeout = window.setTimeout(() => {
-            cleanup()
-            reject(new Error('La recopilación ICE tardó demasiado.'))
-        }, 10000)
-        function cleanup() {
-            window.clearTimeout(timeout)
-            peerConnection.removeEventListener('icegatheringstatechange', handleStateChange)
-        }
-        function handleStateChange() {
-            if (peerConnection.iceGatheringState === 'complete') {
-                cleanup()
-                resolve()
-            }
-        }
-        peerConnection.addEventListener('icegatheringstatechange', handleStateChange)
-    })
-}
-
-export type { StreamSignaling }
 export default StreamingPlayer

@@ -2,10 +2,13 @@ package com.youbeam.core.repository;
 
 import com.youbeam.core.entity.Video;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -26,4 +29,12 @@ public interface VideoRepository extends JpaRepository<Video, UUID> {
             ORDER BY published_at DESC NULLS LAST, created_at DESC
             """, nativeQuery = true)
     List<Video> findPublicCatalog(Pageable pageable);
+
+    /**
+     * Bloquea la fila del video hasta el final de la transacción ({@code SELECT ... FOR UPDATE}),
+     * para que dos procesos no lo marquen como listo a la vez.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM Video v WHERE v.id = :id")
+    Optional<Video> findByIdForUpdate(UUID id);
 }

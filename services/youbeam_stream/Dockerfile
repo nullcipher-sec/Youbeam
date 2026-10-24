@@ -1,7 +1,7 @@
 # ==========================================
 # ETAPA 1: Compilación (Builder)
 # ==========================================
-FROM golang:1.24-alpine AS builder
+FROM golang:1.27-alpine AS builder
 
 # Instalar certificados y git (útil para dependencias)
 RUN apk add --no-cache git ca-certificates

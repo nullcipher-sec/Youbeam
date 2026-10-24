@@ -3,5 +3,9 @@
 services:
   database:
     ports:
-      # Para `psql -h localhost -p $POSTGRES_PORT ...` y para correr el Core desde el IDE. Solo localhost.
+      # Para `psql -h localhost -p $POSTGRES_PORT ...`. Solo localhost.
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+  minio:
+    ports:
+      # API S3 para pruebas locales (tests de Marcelo, mc, etc.). Solo localhost.
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"

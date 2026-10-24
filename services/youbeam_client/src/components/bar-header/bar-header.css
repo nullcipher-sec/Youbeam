@@ -180,6 +180,22 @@
     }
 }
 
+.bar-header-initial {
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    color: #fff;
+    background: linear-gradient(135deg, #5275b5, #c51627);
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.user-dropdown-name {
+    color: #17233f;
+    font-weight: 700;
+    cursor: default;
+}
+
 .user-dropdown-item {
     display: block;
     width: 100%;
