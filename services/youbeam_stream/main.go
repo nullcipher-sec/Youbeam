@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -43,8 +44,15 @@ func main() {
 	// CONFIGURACIÓN DE PION (DTLS-SRTP)
 	// =========================================================================
 	s := webrtc.SettingEngine{}
-	mux, _ := ice.NewMultiUDPMuxFromPort(8443)
-	s.SetICEUDPMux(mux)
+	// Un solo socket en todas las interfaces ([::]:8443, IPv4 + IPv6). Con dirección no especificada
+	// Pion recalcula las IPs locales en cada conexión, así que un cambio de red (Wi-Fi, VPN) no deja
+	// al servidor anunciando candidatos ICE muertos, y loopback queda disponible para desarrollo.
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{Port: 8443})
+	if err != nil {
+		slog.Error("No se pudo abrir el puerto UDP de WebRTC (¿puerto ocupado?)", "port", 8443, "err", err)
+		os.Exit(1)
+	}
+	s.SetICEUDPMux(ice.NewUDPMuxDefault(ice.UDPMuxParams{UDPConn: udpConn}))
 
 	// En Docker el contenedor solo conoce su IP interna: PUBLIC_IP es la que debe anunciar en el SDP
 	// para que el navegador pueda llegar al puerto UDP. En local, sin ella, se usan las IPs de la máquina.
