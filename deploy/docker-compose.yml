@@ -1,3 +1,10 @@
+# YouBeam - Docker Compose (Infraestructura)
+#
+# Producción:  docker compose -f docker-compose.yml up -d --build
+# Desarrollo:  docker compose up -d --build   (carga también docker-compose.override.yml)
+#
+# Solo se exponen: 443/tcp (NGINX), 8443/udp (Streaming Server) y la consola de MinIO en 127.0.0.1:9001.
+# Postgres NO se publica aquí; en desarrollo lo publica docker-compose.override.yml.
 services:
   database:
     image: postgres:16-alpine
@@ -7,11 +14,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-youbeam}
       POSTGRES_USER: ${POSTGRES_USER:-youbeam}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_local_password}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - youbeam_postgres_data:/var/lib/postgresql/data
       - ./db_init/db.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks: [youbeam_net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -19,9 +25,9 @@ services:
       retries: 10
 
   # Bucket S3 self-hosted. La imagen oficial minio/minio ya no se publica en Docker Hub; se usa la
-  # de Chainguard, que se compila desde el código de MinIO y corre sin root.
-  # Los puertos se publican solo en 127.0.0.1 para desarrollo local; en producción no se publican
-  # y solo el Core y el Streaming Server llegan a MinIO por la red interna.
+  # de Chainguard (compilada desde el código de MinIO y sin root). Es una imagen mínima sin shell,
+  # wget ni mc, por eso no lleva healthcheck: core y stream esperan con service_started y
+  # se reinician solos (restart: unless-stopped) si MinIO tarda unos segundos en responder.
   minio:
     image: cgr.dev/chainguard/minio:latest
     container_name: youbeam-minio
@@ -33,11 +39,130 @@ services:
       # Sin comprobaciones de actualización contra servidores externos
       MINIO_UPDATE: "off"
     ports:
-      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      # Consola solo desde la propia máquina; la API S3 (9000) queda en la red interna
+      # (en desarrollo la publica docker-compose.override.yml).
       - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - youbeam_minio_data:/data
+    networks: [youbeam_net]
+
+  core:
+    build:
+      context: ../services/youbeam_core
+      dockerfile: Dockerfile
+    container_name: youbeam-core
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    # El Core firma los tickets (jwt_private) y puede cifrar, pero no descifrar (hpke_public).
+    secrets:
+      - jwt_private
+      - hpke_public                # application.properties lee /run/secrets/hpke_public
+    environment:
+      # Nombres que lee application.properties del Core.
+      POSTGRES_HOST: database
+      POSTGRES_PORT: "5432"        # puerto interno; no depende de POSTGRES_PORT del .env
+      POSTGRES_DB: ${POSTGRES_DB:-youbeam}
+      POSTGRES_USER: ${POSTGRES_USER:-youbeam}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_local_password}
+      # MinIO: el Core crea/verifica el bucket privado al arrancar (MinioConfig).
+      MINIO_URL: http://minio:9000
+      MINIO_USER: ${MINIO_USER:-youbeam}
+      MINIO_PASSWORD: ${MINIO_PASSWORD:-change_this_minio_password}
+      MINIO_BUCKET: videos
+    networks: [youbeam_net]
+    # El HEALTHCHECK (curl /actuator/health) ya viene definido en el Dockerfile del Core.
+
+  stream:
+    build:
+      context: ../services/youbeam_stream
+      dockerfile: Dockerfile
+    container_name: youbeam-stream
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    ports:
+      - "8443:8443/udp"
+    # El Streaming Server es el único con la clave privada: hpke_private (+ jwt_public para verificar tickets).
+    secrets:
+      - source: hpke_private
+        target: hpke_private.json   # crypto.go lee /run/secrets/hpke_private.json
+      - jwt_public                  # keys.go lee /run/secrets/jwt_public
+    environment:
+      # sslmode=disable: el Postgres del Compose no usa TLS (red interna aislada).
+      DATABASE_URL: postgres://${POSTGRES_USER:-youbeam}:${POSTGRES_PASSWORD:-change_this_local_password}@database:5432/${POSTGRES_DB:-youbeam}?sslmode=disable
+      MINIO_ENDPOINT: minio:9000
+      MINIO_USER: ${MINIO_USER:-youbeam}
+      MINIO_PASSWORD: ${MINIO_PASSWORD:-change_this_minio_password}
+      # IP que se anuncia en el SDP como candidato ICE; debe ser alcanzable desde el navegador.
+      PUBLIC_IP: ${PUBLIC_IP:-127.0.0.1}
+    networks: [youbeam_net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8081/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  client:
+    build:
+      context: ../services/youbeam_client
+      dockerfile: Dockerfile
+    container_name: youbeam-client
+    restart: unless-stopped
+    networks: [youbeam_net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  nginx:
+    image: nginx:alpine
+    container_name: youbeam-nginx
+    restart: unless-stopped
+    depends_on:
+      client:
+        condition: service_healthy
+      core:
+        condition: service_healthy
+    ports:
+      - "443:443/tcp"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./secrets/tls.crt:/etc/nginx/certs/tls.crt:ro
+      - ./secrets/tls.key:/etc/nginx/certs/tls.key:ro
+    networks: [youbeam_net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+networks:
+  youbeam_net:
+    name: youbeam_net
 
 volumes:
   youbeam_postgres_data:
+    name: youbeam_postgres_data
   youbeam_minio_data:
+    name: youbeam_minio_data
+
+secrets:
+  hpke_public:
+    file: ./secrets/hpke_public.json
+  hpke_private:
+    file: ./secrets/hpke_private.json
+  jwt_public:
+    file: ./secrets/jwt_public.pem
+  jwt_private:
+    file: ./secrets/jwt_private.pem
