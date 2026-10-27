@@ -66,7 +66,7 @@ func HandleOffer(w http.ResponseWriter, r *http.Request, api *webrtc.API, repo V
 	}
 	// NOTA: NO HAY defer pc.Close() AQUÍ. El cierre se maneja abajo.
 
-	videoTrack, _ := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "video", "pion")
+	videoTrack, _ := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "video", "pion", webrtc.WithPayloader(newVideoPayloader))
 	audioTrack, _ := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "pion")
 	pc.AddTrack(videoTrack)
 	pc.AddTrack(audioTrack)

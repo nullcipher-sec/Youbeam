@@ -92,6 +92,22 @@ docker compose down -v
 docker compose up -d database
 ```
 
+## Levantar todo el stack (desarrollo)
+
+```bash
+scripts/dev-up.sh            # equivale a docker compose up -d, con PUBLIC_IP detectada
+scripts/dev-up.sh --build    # reconstruyendo las imágenes
+```
+
+El script anuncia como candidato ICE la IP de la interfaz física (Wi-Fi/Ethernet) e ignora las
+VPN. Hay que volver a ejecutarlo **cada vez que el equipo cambie de red**. Abrir la plataforma en
+`https://localhost`.
+
+> **Firefox y VPN:** con una VPN de sistema activa (WireGuard, etc.), Firefox solo usa la
+> interfaz del túnel para WebRTC y no puede llegar a un servidor que corre en la misma máquina
+> (`ICE failed`). En local, desactivar la VPN para probar con Firefox o usar Chrome. No afecta
+> a un despliegue con IP pública.
+
 ## Flujo de trabajo
 
 Cada integrante trabaja en su propia rama y nadie hace push directo a `main`.
